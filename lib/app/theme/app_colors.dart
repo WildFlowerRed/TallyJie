@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// LifeOS 配色系统
+/// TallyJie 配色系统
 /// 设计关键词: Minimal, Paper, Warm, Soft, Nature, Notebook, Diary
 class AppColors {
   AppColors._();

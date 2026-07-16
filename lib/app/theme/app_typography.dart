@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-/// LifeOS 字体规范
+/// TallyJie 字体规范
 class AppTypography {
   AppTypography._();
 

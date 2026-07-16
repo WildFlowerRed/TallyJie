@@ -35,7 +35,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
               // 昵称
               Text(
-                'LifeOS',
+                'TallyJie',
                 style: AppTypography.title32,
               ),
               const SizedBox(height: 8),

@@ -4,7 +4,7 @@ import 'app_typography.dart';
 import 'app_radius.dart';
 import 'app_durations.dart';
 
-/// LifeOS 主题配置
+/// TallyJie 主题配置
 class AppTheme {
   AppTheme._();
 

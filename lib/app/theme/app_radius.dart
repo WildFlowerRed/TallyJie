@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// LifeOS 圆角规范
+/// TallyJie 圆角规范
 /// 整个 App 只允许四种圆角
 class AppRadius {
   AppRadius._();

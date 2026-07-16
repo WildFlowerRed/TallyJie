@@ -7,18 +7,18 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     const ProviderScope(
-      child: LifeOSApp(),
+      child: TallyJieApp(),
     ),
   );
 }
 
-class LifeOSApp extends StatelessWidget {
-  const LifeOSApp({super.key});
+class TallyJieApp extends StatelessWidget {
+  const TallyJieApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'LifeOS',
+      title: 'TallyJie',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: AppRouter.router,

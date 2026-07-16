@@ -1,12 +1,12 @@
-/// LifeOS 常量定义
+/// TallyJie 常量定义
 class AppConstants {
   AppConstants._();
 
   /// App 名称
-  static const String appName = 'LifeOS';
+  static const String appName = 'TallyJie';
 
   /// 数据库名称
-  static const String dbName = 'lifeos.db';
+  static const String dbName = 'tallyjie.db';
 
   /// 数据库版本
   static const int dbVersion = 1;

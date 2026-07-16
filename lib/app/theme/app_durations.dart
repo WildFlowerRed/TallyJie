@@ -1,4 +1,4 @@
-/// LifeOS 动效时间规范
+/// TallyJie 动效时间规范
 /// 全部 250~350ms，禁止快速动画
 class AppDurations {
   AppDurations._();

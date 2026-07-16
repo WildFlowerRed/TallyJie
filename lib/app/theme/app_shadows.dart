@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// LifeOS 阴影规范
+/// TallyJie 阴影规范
 /// 非常轻的阴影：Blur 12, Opacity 5%
 class AppShadows {
   AppShadows._();

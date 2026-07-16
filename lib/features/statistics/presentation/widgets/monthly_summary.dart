@@ -52,7 +52,7 @@ class MonthlySummary extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'LifeOS · 月度总结',
+                'TallyJie · 月度总结',
                 style: AppTypography.caption14.copyWith(
                   fontStyle: FontStyle.italic,
                 ),
