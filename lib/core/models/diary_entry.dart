@@ -8,6 +8,10 @@ class DiaryEntry {
   final String? location;
   final List<String> mediaPaths;
   final List<String> tags;
+  final String luckyThing; // 今日小幸运
+  final String progress; // 今日小进步
+  final String todaySay; // 今天想说
+  final int exerciseMinutes; // 运动分钟数
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -20,6 +24,10 @@ class DiaryEntry {
     this.location,
     this.mediaPaths = const [],
     this.tags = const [],
+    this.luckyThing = '',
+    this.progress = '',
+    this.todaySay = '',
+    this.exerciseMinutes = 0,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -34,6 +42,10 @@ class DiaryEntry {
         'location': location,
         'media_paths': mediaPaths.join(','),
         'tags': tags.join(','),
+        'lucky_thing': luckyThing,
+        'progress': progress,
+        'today_say': todaySay,
+        'exercise_minutes': exerciseMinutes,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -46,11 +58,18 @@ class DiaryEntry {
         mood: map['mood'] as int?,
         location: map['location'] as String?,
         mediaPaths: (map['media_paths'] as String?)?.isNotEmpty == true
-            ? (map['media_paths'] as String).split(',').where((s) => s.isNotEmpty).toList()
+            ? (map['media_paths'] as String)
+                .split(',')
+                .where((s) => s.isNotEmpty)
+                .toList()
             : [],
         tags: (map['tags'] as String?)?.isNotEmpty == true
             ? (map['tags'] as String).split(',').where((s) => s.isNotEmpty).toList()
             : [],
+        luckyThing: (map['lucky_thing'] as String?) ?? '',
+        progress: (map['progress'] as String?) ?? '',
+        todaySay: (map['today_say'] as String?) ?? '',
+        exerciseMinutes: (map['exercise_minutes'] as int?) ?? 0,
         createdAt: map['created_at'] != null
             ? DateTime.parse(map['created_at'] as String)
             : DateTime.now(),
@@ -68,6 +87,10 @@ class DiaryEntry {
     String? location,
     List<String>? mediaPaths,
     List<String>? tags,
+    String? luckyThing,
+    String? progress,
+    String? todaySay,
+    int? exerciseMinutes,
   }) =>
       DiaryEntry(
         id: id ?? this.id,
@@ -78,6 +101,10 @@ class DiaryEntry {
         location: location ?? this.location,
         mediaPaths: mediaPaths ?? this.mediaPaths,
         tags: tags ?? this.tags,
+        luckyThing: luckyThing ?? this.luckyThing,
+        progress: progress ?? this.progress,
+        todaySay: todaySay ?? this.todaySay,
+        exerciseMinutes: exerciseMinutes ?? this.exerciseMinutes,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
       );

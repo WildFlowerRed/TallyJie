@@ -1,30 +1,30 @@
 import 'package:flutter/widgets.dart';
 
-/// TallyJie 阴影规范
-/// 非常轻的阴影：Blur 12, Opacity 5%
+/// TallyJie 阴影规范 — 极度柔和
 class AppShadows {
   AppShadows._();
 
-  /// 卡片阴影 - 适用于 Card 组件
+  /// 卡片阴影: 0 2px 8px rgba(0,0,0,0.04)
   static const BoxShadow card = BoxShadow(
-    color: Color(0x0D000000), // black 5% opacity
-    blurRadius: 12,
+    color: Color(0x0A000000),
+    blurRadius: 8,
     offset: Offset(0, 2),
     spreadRadius: 0,
   );
 
-  /// 底部导航阴影 - 稍微明显的阴影
+  /// 导航栏阴影
   static const BoxShadow nav = BoxShadow(
-    color: Color(0x08000000), // black ~3% opacity
-    blurRadius: 16,
-    offset: Offset(0, -2),
+    color: Color(0x08000000),
+    blurRadius: 12,
+    offset: Offset(0, -1),
     spreadRadius: 0,
   );
 
-  /// 无阴影
-  static const BoxShadow none = BoxShadow(
-    color: Color(0x00000000),
-    blurRadius: 0,
-    offset: Offset.zero,
+  /// 毛玻璃底部栏阴影
+  static const BoxShadow frost = BoxShadow(
+    color: Color(0x0D000000),
+    blurRadius: 16,
+    offset: Offset(0, -4),
+    spreadRadius: 0,
   );
 }

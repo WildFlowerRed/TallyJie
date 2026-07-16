@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
-import '../../../../app/theme/app_radius.dart';
-import '../../../../app/theme/app_shadows.dart';
-import '../../../../app/constants.dart';
 
-/// 日记编辑器 - 大文本 + 工具栏
+/// "今天想说" 富文本输入区
 class DiaryEditor extends StatefulWidget {
-  const DiaryEditor({super.key});
+  final String initialText;
+  final ValueChanged<String> onSave;
+
+  const DiaryEditor({
+    super.key,
+    this.initialText = '',
+    required this.onSave,
+  });
 
   @override
   State<DiaryEditor> createState() => _DiaryEditorState();
@@ -15,7 +19,13 @@ class DiaryEditor extends StatefulWidget {
 
 class _DiaryEditorState extends State<DiaryEditor> {
   final TextEditingController _controller = TextEditingController();
-  bool _showPreview = false;
+  bool _saved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = widget.initialText;
+  }
 
   @override
   void dispose() {
@@ -23,142 +33,94 @@ class _DiaryEditorState extends State<DiaryEditor> {
     super.dispose();
   }
 
+  void _handleSave() {
+    widget.onSave(_controller.text);
+    setState(() => _saved = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _saved = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadius.card,
-        boxShadow: const [AppShadows.card],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 文本输入 / 预览
-          _showPreview ? _buildPreview() : _buildEditor(),
-
-          const SizedBox(height: 12),
-
-          // 底部工具栏
-          _buildToolbar(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditor() {
-    return TextField(
-      controller: _controller,
-      maxLines: 6,
-      minLines: 3,
-      style: AppTypography.body17,
-      decoration: InputDecoration(
-        hintText: AppStrings.diaryEditorHint,
-        hintStyle: AppTypography.body17.copyWith(
-          color: AppColors.secondaryText,
-        ),
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.zero,
-        filled: false,
-      ),
-    );
-  }
-
-  Widget _buildPreview() {
-    final text = _controller.text;
-    if (text.isEmpty) {
-      return SizedBox(
-        height: 80,
-        child: Center(
-          child: Text(
-            '还没有写内容',
-            style: AppTypography.caption14,
+          // 标题
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.edit_note, size: 16, color: AppColors.accent),
+                const SizedBox(width: 6),
+                Text(
+                  '今天想说',
+                  style: AppTypography.caption14.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text(
-        text,
-        style: AppTypography.body17,
-      ),
-    );
-  }
 
-  Widget _buildToolbar() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _ToolbarIcon(
-          icon: Icons.image_outlined,
-          label: '图片',
-          onTap: () => _showComingSoon('图片'),
-        ),
-        _ToolbarIcon(
-          icon: Icons.videocam_outlined,
-          label: '视频',
-          onTap: () => _showComingSoon('视频'),
-        ),
-        _ToolbarIcon(
-          icon: Icons.mic_outlined,
-          label: '录音',
-          onTap: () => _showComingSoon('录音'),
-        ),
-        _ToolbarIcon(
-          icon: Icons.location_on_outlined,
-          label: '位置',
-          onTap: () => _showComingSoon('位置'),
-        ),
-        _ToolbarIcon(
-          icon: Icons.label_outline,
-          label: '标签',
-          onTap: () => _showComingSoon('标签'),
-        ),
-        _ToolbarIcon(
-          icon: _showPreview ? Icons.edit_outlined : Icons.visibility_outlined,
-          label: _showPreview ? '编辑' : '预览',
-          onTap: () => setState(() => _showPreview = !_showPreview),
-        ),
-      ],
-    );
-  }
-
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature 功能即将上线'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-}
-
-class _ToolbarIcon extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ToolbarIcon({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 22, color: AppColors.secondaryText),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTypography.navLabel.copyWith(
-              color: AppColors.secondaryText,
+          // 输入框
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.secondaryBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                TextField(
+                  controller: _controller,
+                  maxLines: 4,
+                  minLines: 3,
+                  style: AppTypography.body17.copyWith(
+                    fontSize: 15,
+                    height: 1.6,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: '今天发生了什么...',
+                    hintStyle: TextStyle(
+                      color: AppColors.secondaryText,
+                      fontSize: 15,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    filled: false,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12, bottom: 10),
+                  child: GestureDetector(
+                    onTap: _handleSave,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _saved
+                            ? AppColors.sageGreen
+                            : AppColors.accent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _saved ? '已保存' : '记录',
+                        style: AppTypography.caption14.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

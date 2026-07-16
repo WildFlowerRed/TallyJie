@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_typography.dart';
-import '../../../../app/constants.dart';
+import '../../../../core/models/todo_item.dart';
 import '../widgets/diary_header.dart';
+import '../widgets/diary_grid_cards.dart';
+import '../widgets/diary_todo_strip.dart';
 import '../widgets/diary_editor.dart';
-import '../widgets/spending_summary.dart';
+import '../widgets/diary_quick_entries.dart';
+import '../widgets/diary_bottom_bar.dart';
 
-/// 日记页 - App 首页
+/// 日记页 — 模块化、轻量化、网格化设计
 class DiaryPage extends ConsumerStatefulWidget {
   const DiaryPage({super.key});
 
@@ -18,10 +20,29 @@ class DiaryPage extends ConsumerStatefulWidget {
 class _DiaryPageState extends ConsumerState<DiaryPage> {
   final ScrollController _scrollController = ScrollController();
 
+  // 状态
+  String _weather = 'sunny';
+  int _mood = 3;
+  final double _todayExpense = 128;
+  final int _exerciseMinutes = 30;
+  String _luckyThing = '试了新软件';
+  String _progress = '定好风格基调';
+  String _todaySay = '';
+  final List<TodoItem> _todos = [
+    TodoItem(title: '晨跑', isCompleted: true),
+    TodoItem(title: '读论文', isCompleted: true),
+  ];
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _addTodo(String title) {
+    setState(() {
+      _todos.insert(0, TodoItem(title: title, isCompleted: true));
+    });
   }
 
   @override
@@ -29,66 +50,89 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
     final today = DateTime.now();
 
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
-      body: SafeArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // 日期头部
-            SliverToBoxAdapter(
-              child: DiaryHeader(
-                date: today,
-                weather: 'sunny',
-                mood: 4,
-                onWeatherChanged: (w) {},
-                onMoodChanged: (m) {},
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-            // 今日消费
-            SliverToBoxAdapter(
-              child: _buildSection(
-                title: AppStrings.diaryTodaySpending,
-                child: const SpendingSummary(),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-            // 今天想说
-            SliverToBoxAdapter(
-              child: _buildSection(
-                title: AppStrings.diaryTodayThoughts,
-                child: const DiaryEditor(),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSection({required String title, required Widget child}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.card,
+      body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
-            child: Text(
-              title,
-              style: AppTypography.caption14.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+          // 可滚动内容区
+          Expanded(
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // 1. 日期头部
+                SliverToBoxAdapter(
+                  child: DiaryHeader(
+                    date: today,
+                    weather: _weather,
+                    mood: _mood,
+                    weekNumber: 30,
+                    onWeatherChanged: (w) => setState(() => _weather = w),
+                    onMoodChanged: (m) => setState(() => _mood = m),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                // 2. 四宫格数据卡片
+                SliverToBoxAdapter(
+                  child: DiaryGridCards(
+                    todayExpense: _todayExpense,
+                    exerciseMinutes: _exerciseMinutes,
+                    luckyThing: _luckyThing,
+                    progress: _progress,
+                    onExpenseTap: () {},
+                    onExerciseTap: () {},
+                    onLuckyTap: () {},
+                    onProgressTap: () {},
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                // 3. 今日完成待办标签条
+                SliverToBoxAdapter(
+                  child: DiaryTodoStrip(
+                    items: _todos,
+                    onAdd: _addTodo,
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                // 4. 今天想说编辑器
+                SliverToBoxAdapter(
+                  child: DiaryEditor(
+                    initialText: _todaySay,
+                    onSave: (text) => setState(() => _todaySay = text),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                // 5. 小幸运/小进步快捷入口
+                SliverToBoxAdapter(
+                  child: DiaryQuickEntries(
+                    luckyThing: _luckyThing,
+                    progress: _progress,
+                    onLuckySaved: (v) => setState(() => _luckyThing = v),
+                    onProgressSaved: (v) => setState(() => _progress = v),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              ],
             ),
           ),
-          child,
+
+          // 6. 底部毛玻璃双按钮栏
+          DiaryBottomBar(
+            onPreview: () {
+              // TODO: 预览日记详情页
+            },
+            onCalendar: () {
+              // TODO: 日历视图
+            },
+          ),
         ],
       ),
     );

@@ -40,6 +40,10 @@ class DatabaseHelper {
         location TEXT,
         media_paths TEXT DEFAULT '',
         tags TEXT DEFAULT '',
+        lucky_thing TEXT DEFAULT '',
+        progress TEXT DEFAULT '',
+        today_say TEXT DEFAULT '',
+        exercise_minutes INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
