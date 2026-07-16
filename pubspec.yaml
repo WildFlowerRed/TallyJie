@@ -1,0 +1,31 @@
+name: tallyjie
+description: "LifeOS - 记录生活，而不是记录数字"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.8.1
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  intl: ^0.19.0
+  image_picker: ^1.1.2
+  turnable_page: ^1.0.1
+  uuid: ^4.5.1
+  shared_preferences: ^2.3.4
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
