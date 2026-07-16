@@ -6,15 +6,15 @@ LifeOS 是一个 **日记 + 记账 + ToDo + 周计划 + 情绪记录** 一体化
 
 本仓库是一个 Flutter 跨平台项目：
 
-- `lib/app`：应用配置层，包含主题系统（配色、字体、圆角、阴影、动效）、路由和常量。
+- `lib/app`：应用配置层，包含主题系统、路由和常量。
 - `lib/core`：核心基础设施，包含 SQLite 数据库、数据模型、共享组件和工具类。
 - `lib/features`：功能模块，按 Feature-First 架构组织，每个模块包含 `presentation/pages/` 和 `presentation/widgets/`。
 - `test`：单元测试和 Widget 测试。
 - `android`、`ios`、`windows`、`macos`、`linux`、`web`：各平台入口与原生配置。
 
-## 功能概览
+### 功能概览
 
-### 日记
+#### 日记
 
 - 每日日期展示（大号日期 + 星期 + 完整日期）。
 - 心情标记（5 级 emoji 选择器）和天气标记（晴天/多云/雨天/雪天/大风）。
@@ -22,7 +22,7 @@ LifeOS 是一个 **日记 + 记账 + ToDo + 周计划 + 情绪记录** 一体化
 - 富文本日记编辑器（Markdown 语法支持、图片/视频/录音/位置/标签工具栏）。
 - 今日消费摘要卡片，点击可跳转至记账页。
 
-### 记账
+#### 记账
 
 - 时间轴视图，按上午（6-12）、下午（12-18）、晚上（18-6）分组展示。
 - 每笔交易以卡片形式呈现：分类图标、名称、备注、时间、金额和收支颜色。
@@ -30,14 +30,14 @@ LifeOS 是一个 **日记 + 记账 + ToDo + 周计划 + 情绪记录** 一体化
 - 自定义数字键盘，支持小数点输入，限制两位小数精度。
 - 滑动删除交易。
 
-### 周计划
+#### 周计划
 
 - 七日网格视图（周一至周日）。
 - 周导航切换（上一周/下一周），显示周范围标签。
 - 每日列包含日期数字（今天高亮）+ 事件占位区。
 - 目标标签编辑和事件增删（待接入数据库）。
 
-### 清单
+#### 清单
 
 - 多列表管理（全部/自定义列表切换）。
 - 待办事项增删改查、优先级标记（4 级彩色指示点）。
@@ -45,19 +45,19 @@ LifeOS 是一个 **日记 + 记账 + ToDo + 周计划 + 情绪记录** 一体化
 - 滑动右删除、左完成。
 - 新增待办通过 BottomSheet 快速输入。
 
-### 统计
+#### 统计
 
 - 生活值环形仪表盘（加权综合：日记连续 × 任务完成 × 预算健康 × 心情均值）。
 - 消费分类占比条形图，带动画进度条。
 - 温暖文案月度总结卡片。
 
-### 书本模式
+#### 书本模式
 
 - 翻页浏览所有历史日记。
 - 双页展开效果（左页内容 + 右页标题），装订线渐变装饰。
 - 页码导航。
 
-### 个人中心
+#### 个人中心
 
 - 头像展示（带强调色环）。
 - 连续记录天数徽章。
@@ -65,62 +65,11 @@ LifeOS 是一个 **日记 + 记账 + ToDo + 周计划 + 情绪记录** 一体化
 - 生活值预览卡片，点击进入详细统计页。
 - 快捷操作入口（书本模式、统计、设置）。
 
-## 设计系统
 
-### 设计关键词
 
-```
-Minimal · Paper · Warm · Soft · Nature · Notebook · Diary
-极简   · 纸张  · 暖色 · 柔和 · 自然  · 手账    · 日记
-```
+----
 
-### 配色
-
-| Token | 色值 | 用途 |
-| --- | --- | --- |
-| Primary BG | `#F7F3EE` | 页面背景（奶白色） |
-| Card | `#FFFDFB` | 卡片背景 |
-| Secondary BG | `#F3EEE8` | 次要背景 / 选中态 |
-| Primary Text | `#2B2B2B` | 主文字 / 导航选中 |
-| Secondary Text | `#757575` | 辅助文字 / 导航未选中 |
-| Divider | `#E8E1D8` | 分割线 / 边框 |
-| Accent | `#8E7C66` | 强调色 / 进度条 |
-| Success | `#86B66E` | 完成 / 勾选 |
-| Expense | `#C96C5C` | 支出金额 |
-| Income | `#6B9D78` | 收入金额 |
-
-### 圆角
-
-| Token | 值 | 用途 |
-| --- | --- | --- |
-| `tag` | 8px | 标签、徽章 |
-| `input` | 16px | 输入框、按钮 |
-| `card` | 20px | 卡片、导航胶囊 |
-| `sheet` | 28px | 底部弹出（顶部圆角） |
-
-### 字体层级
-
-| Token | 字号 | 字重 | 用途 |
-| --- | --- | --- | --- |
-| `date42` | 42 | Light (w300) | 大号日期数字 |
-| `amount34` | 34 | Bold (w700) | 金额显示 |
-| `amountInput` | 48 | Light (w300) | 记账金额输入 |
-| `title32` | 32 | SemiBold (w600) | 页面标题 |
-| `h1_26` | 26 | Medium (w500) | 一级标题 |
-| `body17` | 17 | Regular (w400) | 正文 / 列表项 |
-| `caption14` | 14 | Regular (w400) | 辅助文字 / 标签 |
-| `navLabel` | 12 | Medium (w500) | 导航栏文字 |
-
-### 动效与阴影
-
-- 动画时长统一 **250 ~ 350ms**，禁止快速动画。
-- 默认曲线 `easeOutQuart`（Cubic 0.25, 1.0, 0.5, 1.0）。
-- 卡片阴影：Blur **12px**，Opacity **5%**，不出现 Material Design 明显阴影。
-- 页面转场：Fade + Slide（300ms）。
-- BottomSheet：系统 Spring 弹性动画。
-- 导航胶囊切换：AnimatedContainer 300ms。
-
-## 技术栈
+### 技术栈
 
 | 层 | 技术 |
 | --- | --- |
@@ -136,7 +85,9 @@ Minimal · Paper · Warm · Soft · Nature · Notebook · Diary
 | 字体 | google_fonts 6.3 |
 | 持久化 KV | shared_preferences 2.5 |
 
-## 目录结构
+---
+
+### 目录结构
 
 ```text
 lib/
@@ -167,7 +118,7 @@ lib/
 │       └── currency_utils.dart       # 货币格式化（¥ 符号、千分位）
 │
 ├── features/                         # 功能模块（Feature-First）
-│   ├── diary/                        # 📔 日记
+│   ├── diary/                        # 日记
 │   │   └── presentation/
 │   │       ├── pages/diary_page.dart
 │   │       └── widgets/
@@ -176,7 +127,7 @@ lib/
 │   │           ├── diary_editor.dart       # 文本编辑器 + Markdown 工具栏
 │   │           └── spending_summary.dart   # 今日消费摘要卡片
 │   │
-│   ├── ledger/                       # 💰 记账
+│   ├── ledger/                       # 记账
 │   │   └── presentation/
 │   │       ├── pages/ledger_page.dart
 │   │       └── widgets/
@@ -184,13 +135,13 @@ lib/
 │   │           ├── transaction_tile.dart      # 单条交易卡片
 │   │           └── add_expense_sheet.dart     # 3 步新增 BottomSheet
 │   │
-│   ├── planner/                      # 📅 周计划
+│   ├── planner/                      # 周计划
 │   │   └── presentation/pages/planner_page.dart
 │   │
-│   ├── checklist/                    # ✅ 清单
+│   ├── checklist/                    # 清单
 │   │   └── presentation/pages/checklist_page.dart
 │   │
-│   ├── statistics/                   # 📊 统计
+│   ├── statistics/                   # 统计
 │   │   └── presentation/
 │   │       ├── pages/statistics_page.dart
 │   │       └── widgets/
@@ -198,18 +149,18 @@ lib/
 │   │           ├── category_breakdown.dart    # 消费分类占比条形图
 │   │           └── monthly_summary.dart       # 月度总结文案卡片
 │   │
-│   ├── book/                         # 📖 书本模式
+│   ├── book/                         # 书本模式
 │   │   └── presentation/pages/book_page.dart
 │   │
-│   └── profile/                      # 👤 我的
+│   └── profile/                      # 我的
 │       └── presentation/pages/profile_page.dart
 │
 └── main.dart                         # 应用入口（ProviderScope + MaterialApp.router）
 ```
 
-## 前置要求
+### 前置要求
 
-### 本地开发
+#### 本地开发
 
 - Flutter SDK >= 3.44，建议与 `pubspec.yaml` 中的 `environment.sdk` 保持一致。
 - Dart >= 3.12。
@@ -218,9 +169,9 @@ lib/
 - macOS：需安装 Xcode Command Line Tools。
 - 可选：Android Emulator、iOS Simulator、Chrome（Web 调试）。
 
-## 快速启动
+### 快速启动
 
-### 方式一：命令行启动
+#### 方式一：命令行启动
 
 适合日常开发，支持热重载。
 
@@ -240,30 +191,30 @@ flutter run -d android # Android 设备/模拟器
 flutter run -d ios     # iOS 模拟器（仅 macOS）
 ```
 
-### 方式二：IDE 启动
+#### 方式二：IDE 启动
 
 1. 用 VS Code 或 Android Studio 打开项目根目录。
 2. 等待 Flutter 插件完成依赖解析。
 3. 在设备选择器中选择目标设备。
 4. 按 `F5` 或点击 "Run" 启动调试。
 
-## 常用命令
+### 常用命令
 
-### 静态分析与格式化
+#### 静态分析与格式化
 
 ```bash
 flutter analyze        # 静态分析（零警告目标）
 dart format lib/       # 代码格式化
 ```
 
-### 测试
+#### 测试
 
 ```bash
 flutter test                    # 运行所有测试
 flutter test test/widget_test.dart  # 运行单个测试文件
 ```
 
-### 构建
+#### 构建
 
 ```bash
 # Web
@@ -287,7 +238,7 @@ flutter build macos
 flutter build linux
 ```
 
-### 依赖管理
+#### 依赖管理
 
 ```bash
 flutter pub get              # 安装依赖
@@ -295,18 +246,18 @@ flutter pub outdated         # 检查可更新的包
 flutter pub upgrade --major-versions  # 升级到最新主版本
 ```
 
-### 清理
+#### 清理
 
 ```bash
 flutter clean                # 清理构建缓存
 flutter pub cache repair     # 修复 pub 缓存
 ```
 
-## 数据库说明
+### 数据库说明
 
 项目使用 sqflite（SQLite）作为本地存储方案。数据库文件存储在应用文档目录下的 `lifeos.db`。
 
-### 数据表
+#### 数据表
 
 | 表名 | 说明 | 主要字段 |
 | --- | --- | --- |
@@ -319,20 +270,20 @@ flutter pub cache repair     # 修复 pub 缓存
 | `mood_entries` | 心情记录 | `id`, `date`(UNIQUE), `mood`, `note` |
 | `user_settings` | 用户设置 | `id`, `name`, `avatar_path` |
 
-### 初始化与迁移
+#### 初始化与迁移
 
 数据库在首次启动时通过 `DatabaseHelper._onCreate` 自动创建所有表和默认数据。当前版本号为 `1`。后续迁移通过 `onUpgrade` 回调处理，按版本号递增执行对应 SQL。
 
-### 默认数据
+#### 默认数据
 
 - 默认用户（`user_settings` 表 id=1）。
 - 每日默认待办项：学习、运动、阅读、记账、冥想。
 
-### 模型转换
+#### 模型转换
 
 所有模型类均实现 `toMap()` 和 `fromMap()` 方法，直接与 sqflite 的 `db.insert` / `db.query` 对接，不引入额外 ORM 层。
 
-## 页面路由
+### 页面路由
 
 | 路由 | 页面 | 所属分支 | 说明 |
 | --- | --- | --- | --- |
@@ -346,7 +297,7 @@ flutter pub cache repair     # 修复 pub 缓存
 
 路由使用 `StatefulShellRoute` 保证每个 Tab 的导航状态独立保存，切换时不丢失滚动位置和表单输入。
 
-## 胶囊导航栏
+### 胶囊导航栏
 
 底部导航采用自定义胶囊式设计：
 
@@ -356,7 +307,7 @@ flutter pub cache repair     # 修复 pub 缓存
 - 切换动画：AnimatedContainer 300ms easeOutQuart，图标 + 文字同时切换。
 - 每个分支通过 `StatefulShellBranch` 与路由绑定，点击调用 `navigationShell.goBranch(index)`。
 
-## 记账 BottomSheet
+### 记账 BottomSheet
 
 新增账单采用三步流程，完全在 `showModalBottomSheet` 内完成：
 
@@ -370,9 +321,9 @@ flutter pub cache repair     # 修复 pub 缓存
 - 步骤指示器：顶部 3 个圆点，已完成和当前步骤为黑色，未完成步骤为灰色。
 - 保存后弹出 SnackBar 提示。
 
-## 测试与验收
+### 测试与验收
 
-### 静态分析
+#### 静态分析
 
 ```bash
 flutter analyze
@@ -380,13 +331,13 @@ flutter analyze
 
 目标：**零警告、零错误**。
 
-### Widget 测试
+#### Widget 测试
 
 ```bash
 flutter test
 ```
 
-### 手动验收清单
+#### 手动验收清单
 
 | 序号 | 验收项 | 预期 |
 | --- | --- | --- |
@@ -401,7 +352,7 @@ flutter test
 | 9 | 书本模式 | 翻页动画正常，内容展示正确 |
 | 10 | 我的页 | 头像/统计/快捷入口正常显示 |
 
-## 开发约定
+### 开发约定
 
 - 功能模块遵循 Feature-First 架构，每个 feature 内部按 `presentation/pages/` 和 `presentation/widgets/` 分层。
 - 共享组件放在 `lib/core/widgets/`，页面级独立组件放在对应 feature 的 `widgets/` 目录。
@@ -411,24 +362,9 @@ flutter test
 - 提交粒度：每完成一个独立功能模块或修复后即提交，遵循 `feat:` / `fix:` / `docs:` / `chore:` 前缀。
 - 不要提交 `.env`、构建产物、IDE 个人配置文件。
 
-## 路线图
 
-- [x] 项目骨架 + 完整设计系统（配色/字体/圆角/阴影/动效）
-- [x] 胶囊导航 + StatefulShellRoute 路由
-- [x] 日记页（日期/心情/天气/待办/编辑器/消费摘要）
-- [x] 记账页（时间轴 + 3 步 BottomSheet + 自定义键盘）
-- [x] 周计划页（七日网格 + 周导航）
-- [x] 清单页（CRUD + 滑动操作 + 优先级）
-- [x] 统计页（生活值仪表盘 + 分类占比 + 月度总结）
-- [x] 书本翻页模式
-- [x] 个人中心页
-- [ ] Riverpod 状态管理层（数据库连接 + Notifier 重构）
-- [ ] 数据库操作接入（替换当前内存模拟数据）
-- [ ] 通知监听自动记账（Android NotificationListenerService）
-- [ ] 数据导出（JSON / CSV）
-- [ ] 深色模式
-- [ ] 云端同步（iCloud / WebDAV）
-- [ ] 国际化（英文版本）
+
+-----
 
 ## License
 
