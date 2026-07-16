@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/widgets/capsule_nav_bar.dart';
 import '../features/diary/presentation/pages/diary_page.dart';
-import '../features/planner/presentation/pages/planner_page.dart';
-import '../features/checklist/presentation/pages/checklist_page.dart';
 import '../features/ledger/presentation/pages/ledger_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/book/presentation/pages/book_page.dart';
@@ -43,28 +41,6 @@ class AppRouter {
                 path: '/diary',
                 pageBuilder: (context, state) => const NoTransitionPage(
                   child: DiaryPage(),
-                ),
-              ),
-            ],
-          ),
-          // 周计划
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/planner',
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: PlannerPage(),
-                ),
-              ),
-            ],
-          ),
-          // 清单
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/checklist',
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: ChecklistPage(),
                 ),
               ),
             ],

@@ -4,7 +4,6 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/constants.dart';
 import '../widgets/diary_header.dart';
-import '../widgets/today_checklist.dart';
 import '../widgets/diary_editor.dart';
 import '../widgets/spending_summary.dart';
 
@@ -48,16 +47,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-            // 今日完成
-            SliverToBoxAdapter(
-              child: _buildSection(
-                title: AppStrings.diaryTodayTasks,
-                child: const TodayChecklist(),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
             // 今日消费
             SliverToBoxAdapter(

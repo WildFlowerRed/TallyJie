@@ -24,14 +24,11 @@ class AppStrings {
 
   // 导航
   static const String navDiary = '日记';
-  static const String navPlanner = '周计划';
-  static const String navChecklist = '清单';
   static const String navLedger = '记账';
   static const String navProfile = '我的';
 
   // 日记页
   static const String diaryToday = '今天';
-  static const String diaryTodayTasks = '今日完成';
   static const String diaryTodayThoughts = '今天想说';
   static const String diaryEditorHint = '今天想说点什么...';
   static const String diaryTodaySpending = '今日消费';
@@ -57,19 +54,6 @@ class AppStrings {
   static const String timeMorning = '上午';
   static const String timeAfternoon = '下午';
   static const String timeEvening = '晚上';
-
-  // 周计划
-  static const String plannerTitle = '周计划';
-  static const String plannerEmpty = '开始规划你的一周';
-  static const String plannerEmptySubtitle = '制定计划，让每一天都充实';
-  static const String plannerAddGoal = '+ 添加目标';
-
-  // 清单
-  static const String checklistTitle = '清单';
-  static const String checklistAddTodo = '添加待办';
-  static const String checklistEmpty = '添加你的第一个任务';
-  static const String checklistEmptySubtitle = '把想做的事情记下来';
-  static const String checklistAll = '全部';
 
   // 统计
   static const String statsTitle = '统计';

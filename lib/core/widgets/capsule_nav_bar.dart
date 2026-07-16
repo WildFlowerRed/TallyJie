@@ -18,8 +18,6 @@ class CapsuleNavBar extends StatelessWidget {
 
   static const _tabs = [
     _NavTab(icon: Icons.edit_note, label: '日记'),
-    _NavTab(icon: Icons.calendar_month_outlined, label: '周计划'),
-    _NavTab(icon: Icons.checklist_outlined, label: '清单'),
     _NavTab(icon: Icons.receipt_long_outlined, label: '记账'),
     _NavTab(icon: Icons.person_outline, label: '我的'),
   ];
