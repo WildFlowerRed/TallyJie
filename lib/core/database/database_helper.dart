@@ -5,163 +5,165 @@ import '../../app/constants.dart';
 /// SQLite 数据库助手
 class DatabaseHelper {
   static DatabaseHelper? _instance;
-  static Database? _database;
+  static Database? _db;
 
   DatabaseHelper._();
 
   factory DatabaseHelper() => _instance ??= DatabaseHelper._();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+    if (_db != null) return _db!;
+    _db = await _init();
+    return _db!;
   }
 
-  Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, AppConstants.dbName);
-
-    return await openDatabase(
-      path,
-      version: AppConstants.dbVersion,
-      onCreate: _onCreate,
-    );
+  Future<Database> _init() async {
+    final path = join(await getDatabasesPath(), AppConstants.dbName);
+    return openDatabase(path, version: AppConstants.dbVersion, onCreate: _onCreate);
   }
 
-  Future<void> _onCreate(Database db, int version) async {
+  Future<void> _onCreate(Database db, int v) async {
+    // 分类表（收支共用）
+    await db.execute('''
+      CREATE TABLE categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        icon TEXT NOT NULL DEFAULT '📌',
+        type TEXT NOT NULL,
+        color TEXT DEFAULT '#5E7A6B',
+        sort_order INTEGER DEFAULT 0
+      )
+    ''');
+
+    // 账户表
+    await db.execute('''
+      CREATE TABLE accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        icon TEXT NOT NULL DEFAULT '💳',
+        sort_order INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0
+      )
+    ''');
+
     // 日记表
     await db.execute('''
       CREATE TABLE diary_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT NOT NULL UNIQUE,
         content TEXT DEFAULT '',
-        weather TEXT,
-        mood INTEGER,
-        location TEXT,
-        media_paths TEXT DEFAULT '',
-        tags TEXT DEFAULT '',
-        lucky_thing TEXT DEFAULT '',
-        progress TEXT DEFAULT '',
-        today_say TEXT DEFAULT '',
-        exercise_minutes INTEGER DEFAULT 0,
-        created_at TEXT NOT NULL,
+        mood TEXT DEFAULT '😊',
+        mood_label TEXT DEFAULT '开心',
+        weather TEXT DEFAULT 'sunny',
+        weather_label TEXT DEFAULT '晴',
+        images TEXT DEFAULT '',
         updated_at TEXT NOT NULL
       )
     ''');
 
-    // 交易/记账表
+    // 账单表
     await db.execute('''
       CREATE TABLE transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         amount REAL NOT NULL,
         type TEXT NOT NULL,
-        category TEXT NOT NULL,
+        category_id INTEGER NOT NULL,
+        category_name TEXT NOT NULL,
         category_icon TEXT NOT NULL,
-        note TEXT,
+        account_id INTEGER NOT NULL,
+        account_name TEXT NOT NULL,
+        account_icon TEXT NOT NULL,
+        note TEXT DEFAULT '',
+        images TEXT DEFAULT '',
         timestamp TEXT NOT NULL,
-        source TEXT DEFAULT 'manual',
-        created_at TEXT NOT NULL
-      )
-    ''');
-
-    // 待办事项表
-    await db.execute('''
-      CREATE TABLE todo_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        notes TEXT,
-        is_completed INTEGER DEFAULT 0,
-        due_date TEXT,
-        priority INTEGER DEFAULT 0,
-        date TEXT NOT NULL,
-        sort_order INTEGER DEFAULT 0,
-        completed_at TEXT,
-        created_at TEXT NOT NULL
-      )
-    ''');
-
-    // 周计划表
-    await db.execute('''
-      CREATE TABLE weekly_plans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        week_start TEXT NOT NULL UNIQUE,
-        goals TEXT DEFAULT '',
-        created_at TEXT NOT NULL
-      )
-    ''');
-
-    // 每日计划备注
-    await db.execute('''
-      CREATE TABLE daily_plan_notes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        week_start TEXT NOT NULL,
-        day_index INTEGER NOT NULL,
-        notes TEXT DEFAULT ''
-      )
-    ''');
-
-    // 日程事件
-    await db.execute('''
-      CREATE TABLE plan_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        week_start TEXT NOT NULL,
-        day_index INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        time TEXT,
-        color TEXT DEFAULT '#8E7C66',
-        sort_order INTEGER DEFAULT 0
-      )
-    ''');
-
-    // 心情记录
-    await db.execute('''
-      CREATE TABLE mood_entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL UNIQUE,
-        mood TEXT NOT NULL,
-        note TEXT,
-        created_at TEXT NOT NULL
-      )
-    ''');
-
-    // 用户设置
-    await db.execute('''
-      CREATE TABLE user_settings (
-        id INTEGER PRIMARY KEY,
-        name TEXT DEFAULT '',
-        avatar_path TEXT,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        FOREIGN KEY (category_id) REFERENCES categories(id),
+        FOREIGN KEY (account_id) REFERENCES accounts(id)
       )
     ''');
 
-    // 插入默认用户
+    // 应用设置表
     await db.execute('''
-      INSERT INTO user_settings (id, name, created_at, updated_at)
-      VALUES (1, '', datetime('now'), datetime('now'))
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
     ''');
 
-    // 插入默认待办项
-    await _seedDefaultTodos(db);
+    await db.execute(
+      "INSERT INTO app_settings (key, value) VALUES ('theme_mode', 'light')",
+    );
+
+    // 种子数据
+    await _seed(db);
   }
 
-  Future<void> _seedDefaultTodos(Database db) async {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final defaultTodos = [
-      {'title': '学习', 'date': today, 'sort_order': 0},
-      {'title': '运动', 'date': today, 'sort_order': 1},
-      {'title': '阅读', 'date': today, 'sort_order': 2},
-      {'title': '记账', 'date': today, 'sort_order': 3},
-      {'title': '冥想', 'date': today, 'sort_order': 4},
-    ];
+  Future<void> _seed(Database db) async {
 
-    for (final todo in defaultTodos) {
-      await db.insert('todo_items', {
-        'title': todo['title'],
-        'date': todo['date'],
-        'sort_order': todo['sort_order'],
-        'created_at': DateTime.now().toIso8601String(),
+    // 支出分类
+    final expenseCategories = [
+      ['🍜', '餐饮'], ['🚗', '交通'], ['🛒', '购物'],
+      ['🏠', '住房'], ['💡', '水电'], ['📱', '通讯'],
+      ['🎮', '娱乐'], ['📚', '学习'], ['💊', '医疗'],
+      ['✈️', '旅行'], ['🐱', '宠物'], ['🎁', '礼物'],
+      ['🧴', '日用品'], ['👗', '服饰'], ['💄', '美妆'],
+      ['🏃', '运动'], ['💻', '数码'], ['📌', '其他'],
+    ];
+    for (var i = 0; i < expenseCategories.length; i++) {
+      final c = expenseCategories[i];
+      await db.insert('categories', {
+        'name': c[1], 'icon': c[0], 'type': 'expense',
+        'sort_order': i, 'color': '#D4786E',
       });
     }
+
+    // 收入分类
+    final incomeCategories = [
+      ['💰', '工资'], ['🧧', '奖金'], ['📈', '分红'],
+      ['💼', '兼职'], ['💳', '收款'], ['↩️', '退款'],
+      ['🎁', '红包'], ['🏦', '利息'], ['📊', '投资'],
+      ['📌', '其他'],
+    ];
+    for (var i = 0; i < incomeCategories.length; i++) {
+      final c = incomeCategories[i];
+      await db.insert('categories', {
+        'name': c[1], 'icon': c[0], 'type': 'income',
+        'sort_order': i, 'color': '#5E7A6B',
+      });
+    }
+
+    // 默认账户
+    final accounts = [
+      ['💚', '微信'], ['💙', '支付宝'], ['🏦', '银行卡'],
+      ['💵', '现金'], ['💳', '信用卡'], ['📱', '数字钱包'],
+    ];
+    for (var i = 0; i < accounts.length; i++) {
+      final a = accounts[i];
+      await db.insert('accounts', {
+        'name': a[1], 'icon': a[0], 'sort_order': i,
+        'is_default': i == 0 ? 1 : 0,
+      });
+    }
+
+    // 心情标签
+    final moods = [
+      ['😊', '开心'], ['😌', '平静'], ['😢', '难过'],
+      ['😡', '生气'], ['😫', '疲惫'], ['😲', '惊喜'],
+      ['😰', '焦虑'], ['🥰', '满足'],
+    ];
+    await db.insert('app_settings', {
+      'key': 'moods', 'value': moods.map((m) => '${m[0]},${m[1]}').join('|'),
+    });
+
+    // 天气选项
+    final weathers = [
+      ['sunny', '☀️', '晴'], ['cloudy', '⛅', '多云'],
+      ['overcast', '☁️', '阴天'], ['light_rain', '🌧️', '小雨'],
+      ['heavy_rain', '⛈️', '大雨'], ['snow', '❄️', '雪天'],
+      ['fog', '🌫️', '雾天'],
+    ];
+    await db.insert('app_settings', {
+      'key': 'weathers', 'value': weathers.map((w) => '${w[0]},${w[1]},${w[2]}').join('|'),
+    });
   }
 }

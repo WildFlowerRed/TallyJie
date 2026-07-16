@@ -2,21 +2,20 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
 import 'app_radius.dart';
-import 'app_durations.dart';
 
-/// TallyJie 主题配置 — 莫兰迪色系
+/// TallyJie 主题
 class AppTheme {
   AppTheme._();
 
   static ThemeData get light => ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.card,
+        scaffoldBackgroundColor: AppColors.bg,
         colorScheme: const ColorScheme.light(
-          surface: AppColors.card,
-          onSurface: AppColors.primaryText,
+          surface: AppColors.bg,
+          onSurface: AppColors.text,
           primary: AppColors.accent,
-          onPrimary: AppColors.card,
-          secondary: AppColors.secondaryText,
+          onPrimary: AppColors.white,
+          secondary: AppColors.textSecondary,
           error: AppColors.expense,
         ),
 
@@ -24,59 +23,44 @@ class AppTheme {
           backgroundColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          centerTitle: false,
-          titleTextStyle: AppTypography.title32,
+          centerTitle: true,
+          titleTextStyle: AppTypography.title,
         ),
 
         cardTheme: CardThemeData(
           color: AppColors.card,
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.card,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
           margin: EdgeInsets.zero,
         ),
 
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: AppColors.secondaryBg,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+          fillColor: AppColors.surface,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
-            borderRadius: AppRadius.card,
+            borderRadius: AppRadius.md,
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: AppRadius.card,
+            borderRadius: AppRadius.md,
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: AppRadius.card,
-            borderSide: const BorderSide(
-              color: AppColors.accent,
-              width: 1,
-            ),
+            borderRadius: AppRadius.md,
+            borderSide: const BorderSide(color: AppColors.accent, width: 1),
           ),
-          hintStyle: const TextStyle(
-            color: AppColors.secondaryText,
-            fontSize: 15,
-          ),
+          hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 16),
         ),
 
         bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.sheet,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.sheet),
         ),
 
         dialogTheme: DialogThemeData(
           backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.card,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
         ),
 
         dividerTheme: const DividerThemeData(
@@ -85,26 +69,13 @@ class AppTheme {
           space: 0,
         ),
 
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: AppColors.navSelected,
-          foregroundColor: AppColors.card,
-          elevation: 0,
-          shape: CircleBorder(),
-        ),
-
         snackBarTheme: SnackBarThemeData(
-          backgroundColor: AppColors.navSelected,
-          contentTextStyle: const TextStyle(
-            color: AppColors.card,
-            fontSize: 15,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.card,
-          ),
+          backgroundColor: AppColors.text,
+          contentTextStyle: const TextStyle(color: AppColors.white, fontSize: 15),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
           behavior: SnackBarBehavior.floating,
         ),
       );
 
   static const Curve easeOutQuart = Cubic(0.25, 1.0, 0.5, 1.0);
-  static const Duration pageTransitionDuration = AppDurations.medium;
 }

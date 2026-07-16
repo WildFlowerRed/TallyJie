@@ -1,41 +1,42 @@
 import 'package:flutter/material.dart';
 
-/// TallyJie 配色系统 — 莫兰迪色系
-/// 设计关键词: 低饱和度、柔和、克制、温暖
+/// TallyJie 配色 — 奶油白 + 低饱和主题色
+/// 参考: Notion, Apple Journal, iOS 原生
 class AppColors {
   AppColors._();
 
-  // 背景色
-  static const Color primaryBg = Color(0xFFF8F8F8); // 极浅灰
-  static const Color card = Color(0xFFFFFFFF); // 纯白卡片
-  static const Color secondaryBg = Color(0xFFF2F2F2); // 浅灰底
+  // 背景
+  static const Color bg = Color(0xFFFAF8F5);      // 奶油白
+  static const Color card = Color(0xFFFFFFFF);      // 纯白卡片
+  static const Color surface = Color(0xFFF5F3F0);   // 浅灰底
 
-  // 文字色
-  static const Color primaryText = Color(0xFF2B2B2B);
-  static const Color secondaryText = Color(0xFF9CA3AF);
+  // 文字
+  static const Color text = Color(0xFF1C1C1E);      // 主文字
+  static const Color textSecondary = Color(0xFF8E8E93); // 次文字
+  static const Color textHint = Color(0xFFC7C7CC);  // 占位文字
 
-  // 分割线 / 边框
-  static const Color divider = Color(0xFFF0F0F0);
+  // 分割线
+  static const Color divider = Color(0xFFE5E5EA);
 
-  // 莫兰迪功能色
-  static const Color sageGreen = Color(0xFFA3B89B); // 豆沙绿 — 消费/收入
-  static const Color dustyBlue = Color(0xFF7B9EBF); // 雾霾蓝 — 运动
-  static const Color dustyRose = Color(0xFFD4B5BE); // 浅藕粉 — 小幸运
-  static const Color warmBeige = Color(0xFFC4A882); // 暖驼色 — 小进步
-  static const Color accent = Color(0xFF8E9DAE); // 莫兰迪蓝灰 — 通用强调
+  // 主题色
+  static const Color accent = Color(0xFF5E7A6B);    // 深豆沙绿
+  static const Color accentLight = Color(0xFFE8F0EB);
 
-  // 功能色（保留原有语义）
-  static const Color success = Color(0xFFA3B89B);
-  static const Color expense = Color(0xFFC96C5C);
-  static const Color income = Color(0xFFA3B89B);
+  // 收支
+  static const Color income = Color(0xFF5E7A6B);    // 收入绿
+  static const Color expense = Color(0xFFD4786E);   // 支出橙红
 
-  // 导航胶囊
-  static const Color navSelected = Color(0xFF2B2B2B);
-  static const Color navUnselectedText = Color(0xFF9CA3AF);
-  static const Color navSelectedText = Colors.white;
+  // 导航
+  static const Color navSelected = Color(0xFF1C1C1E);
+  static const Color navUnselected = Color(0xFF8E8E93);
+  static const Color navText = Color(0xFFFFFFFF);
+
+  // 莫兰迪标签色
+  static const Color tagPink = Color(0xFFF0E5E8);     // 浅藕粉
+  static const Color tagBlue = Color(0xFFE5ECF3);     // 浅雾蓝
+  static const Color tagWarm = Color(0xFFF3EFE5);     // 浅暖驼
+  static const Color tagGreen = Color(0xFFE8F0EB);    // 浅豆沙绿
+
   static const Color white = Colors.white;
-
-  // 快捷入口背景
-  static const Color luckyBg = Color(0xFFFBF0F2); // 浅藕粉底
-  static const Color progressBg = Color(0xFFF5F0E8); // 浅驼色底
+  static const Color success = Color(0xFF5E7A6B);
 }
