@@ -21,46 +21,216 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   DateTime _selectedTime = DateTime.now();
 
   final _expenseCats = [
-    {'id': 1, 'icon': '🍜', 'name': '餐饮'},
-    {'id': 2, 'icon': '🚗', 'name': '交通'},
-    {'id': 3, 'icon': '🛒', 'name': '购物'},
-    {'id': 4, 'icon': '🏠', 'name': '住房'},
-    {'id': 5, 'icon': '💡', 'name': '水电'},
-    {'id': 6, 'icon': '📱', 'name': '通讯'},
-    {'id': 7, 'icon': '🎮', 'name': '娱乐'},
-    {'id': 8, 'icon': '📚', 'name': '学习'},
-    {'id': 9, 'icon': '💊', 'name': '医疗'},
-    {'id': 10, 'icon': '✈️', 'name': '旅行'},
-    {'id': 11, 'icon': '🐱', 'name': '宠物'},
-    {'id': 12, 'icon': '🎁', 'name': '礼物'},
-    {'id': 13, 'icon': '🧴', 'name': '日用品'},
-    {'id': 14, 'icon': '👗', 'name': '服饰'},
-    {'id': 15, 'icon': '💄', 'name': '美妆'},
-    {'id': 16, 'icon': '🏃', 'name': '运动'},
-    {'id': 17, 'icon': '💻', 'name': '数码'},
-    {'id': 18, 'icon': '📌', 'name': '其他'},
+    {
+      'id': 1,
+      'icon': Icons.restaurant_outlined,
+      'color': Color(0xFFC96C5C),
+      'name': '餐饮',
+    },
+    {
+      'id': 2,
+      'icon': Icons.directions_car_outlined,
+      'color': Color(0xFF6D8BA8),
+      'name': '交通',
+    },
+    {
+      'id': 3,
+      'icon': Icons.shopping_bag_outlined,
+      'color': Color(0xFFB88A5B),
+      'name': '购物',
+    },
+    {
+      'id': 4,
+      'icon': Icons.home_outlined,
+      'color': Color(0xFF8E7C66),
+      'name': '住房',
+    },
+    {
+      'id': 5,
+      'icon': Icons.lightbulb_outline,
+      'color': Color(0xFFD2A84A),
+      'name': '水电',
+    },
+    {
+      'id': 6,
+      'icon': Icons.phone_iphone_outlined,
+      'color': Color(0xFF7D91A6),
+      'name': '通讯',
+    },
+    {
+      'id': 7,
+      'icon': Icons.sports_esports_outlined,
+      'color': Color(0xFF9A7BA8),
+      'name': '娱乐',
+    },
+    {
+      'id': 8,
+      'icon': Icons.menu_book_outlined,
+      'color': Color(0xFF6B9D78),
+      'name': '学习',
+    },
+    {
+      'id': 9,
+      'icon': Icons.medical_services_outlined,
+      'color': Color(0xFFD4786E),
+      'name': '医疗',
+    },
+    {
+      'id': 10,
+      'icon': Icons.flight_takeoff_outlined,
+      'color': Color(0xFF6D9CA8),
+      'name': '旅行',
+    },
+    {
+      'id': 11,
+      'icon': Icons.cruelty_free_outlined,
+      'color': Color(0xFFA88372),
+      'name': '宠物',
+    },
+    {
+      'id': 12,
+      'icon': Icons.card_giftcard_outlined,
+      'color': Color(0xFFC77D90),
+      'name': '礼物',
+    },
+    {
+      'id': 13,
+      'icon': Icons.spa_outlined,
+      'color': Color(0xFF86B66E),
+      'name': '日用品',
+    },
+    {
+      'id': 14,
+      'icon': Icons.checkroom_outlined,
+      'color': Color(0xFFA982A4),
+      'name': '服饰',
+    },
+    {
+      'id': 15,
+      'icon': Icons.brush_outlined,
+      'color': Color(0xFFC98294),
+      'name': '美妆',
+    },
+    {
+      'id': 16,
+      'icon': Icons.directions_run_outlined,
+      'color': Color(0xFF7AA486),
+      'name': '运动',
+    },
+    {
+      'id': 17,
+      'icon': Icons.devices_outlined,
+      'color': Color(0xFF6E8FA4),
+      'name': '数码',
+    },
+    {
+      'id': 18,
+      'icon': Icons.more_horiz,
+      'color': Color(0xFF8E8E93),
+      'name': '其他',
+    },
   ];
 
   final _incomeCats = [
-    {'id': 101, 'icon': '💰', 'name': '工资'},
-    {'id': 102, 'icon': '🧧', 'name': '奖金'},
-    {'id': 103, 'icon': '📈', 'name': '分红'},
-    {'id': 104, 'icon': '💼', 'name': '兼职'},
-    {'id': 105, 'icon': '💳', 'name': '收款'},
-    {'id': 106, 'icon': '↩️', 'name': '退款'},
-    {'id': 107, 'icon': '🎁', 'name': '红包'},
-    {'id': 108, 'icon': '🏦', 'name': '利息'},
-    {'id': 109, 'icon': '📊', 'name': '投资'},
-    {'id': 110, 'icon': '📌', 'name': '其他'},
+    {
+      'id': 101,
+      'icon': Icons.payments_outlined,
+      'color': Color(0xFF6B9D78),
+      'name': '工资',
+    },
+    {
+      'id': 102,
+      'icon': Icons.redeem_outlined,
+      'color': Color(0xFFC77D90),
+      'name': '奖金',
+    },
+    {
+      'id': 103,
+      'icon': Icons.trending_up_outlined,
+      'color': Color(0xFF7AA486),
+      'name': '分红',
+    },
+    {
+      'id': 104,
+      'icon': Icons.work_outline,
+      'color': Color(0xFF8E7C66),
+      'name': '兼职',
+    },
+    {
+      'id': 105,
+      'icon': Icons.credit_card_outlined,
+      'color': Color(0xFF6D8BA8),
+      'name': '收款',
+    },
+    {
+      'id': 106,
+      'icon': Icons.keyboard_return_outlined,
+      'color': Color(0xFF8E8E93),
+      'name': '退款',
+    },
+    {
+      'id': 107,
+      'icon': Icons.card_giftcard_outlined,
+      'color': Color(0xFFC96C5C),
+      'name': '红包',
+    },
+    {
+      'id': 108,
+      'icon': Icons.account_balance_outlined,
+      'color': Color(0xFF5E7A6B),
+      'name': '利息',
+    },
+    {
+      'id': 109,
+      'icon': Icons.insert_chart_outlined,
+      'color': Color(0xFF6E8FA4),
+      'name': '投资',
+    },
+    {
+      'id': 110,
+      'icon': Icons.more_horiz,
+      'color': Color(0xFF8E8E93),
+      'name': '其他',
+    },
   ];
 
   final _accounts = [
-    {'id': 1, 'icon': '💚', 'name': '微信'},
-    {'id': 2, 'icon': '💙', 'name': '支付宝'},
-    {'id': 3, 'icon': '🏦', 'name': '银行卡'},
-    {'id': 4, 'icon': '💵', 'name': '现金'},
-    {'id': 5, 'icon': '💳', 'name': '信用卡'},
-    {'id': 6, 'icon': '📱', 'name': '数字钱包'},
+    {
+      'id': 1,
+      'icon': Icons.chat_bubble_outline,
+      'color': Color(0xFF6B9D78),
+      'name': '微信',
+    },
+    {
+      'id': 2,
+      'icon': Icons.account_balance_wallet_outlined,
+      'color': Color(0xFF5F8FB8),
+      'name': '支付宝',
+    },
+    {
+      'id': 3,
+      'icon': Icons.account_balance_outlined,
+      'color': Color(0xFF8E7C66),
+      'name': '银行卡',
+    },
+    {
+      'id': 4,
+      'icon': Icons.money_outlined,
+      'color': Color(0xFF7AA486),
+      'name': '现金',
+    },
+    {
+      'id': 5,
+      'icon': Icons.credit_card_outlined,
+      'color': Color(0xFF9A7BA8),
+      'name': '信用卡',
+    },
+    {
+      'id': 6,
+      'icon': Icons.phone_iphone_outlined,
+      'color': Color(0xFF6D8BA8),
+      'name': '数字钱包',
+    },
   ];
 
   List<Map<String, dynamic>> get _cats =>
@@ -372,9 +542,9 @@ class _TypeBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.1) : AppColors.surface,
           borderRadius: AppRadius.md,
-          border: selected
-              ? Border.all(color: color.withValues(alpha: 0.3))
-              : null,
+          border: Border.all(
+            color: selected ? color.withValues(alpha: 0.3) : Colors.transparent,
+          ),
         ),
         child: Center(
           child: Text(
@@ -412,20 +582,35 @@ class _ChipGrid extends StatelessWidget {
         final sel = selectedId == id;
         return GestureDetector(
           onTap: () => onSelect(id),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutQuart,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: sel
                   ? selectedColor.withValues(alpha: 0.15)
                   : AppColors.surface,
               borderRadius: AppRadius.capsule,
-              border: sel
-                  ? Border.all(color: selectedColor.withValues(alpha: 0.3))
-                  : null,
+              border: Border.all(
+                color: sel
+                    ? selectedColor.withValues(alpha: 0.3)
+                    : Colors.transparent,
+              ),
             ),
-            child: Text(
-              '${item['icon']} ${item['name']}',
-              style: AppTypography.caption.copyWith(fontSize: 13),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  item['icon'] as IconData,
+                  size: 16,
+                  color: sel ? selectedColor : item['color'] as Color,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  item['name'] as String,
+                  style: AppTypography.caption.copyWith(fontSize: 13),
+                ),
+              ],
             ),
           ),
         );
