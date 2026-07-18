@@ -8,7 +8,7 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/date_helpers.dart';
 
-const _primaryBlue = Color(0xFF4A6CF7);
+const _primaryBlue = Color(0xFF5E7A6B);
 const _secondaryText = Color(0xFF7F8C8D);
 
 enum _BillTypeFilter { all, expense, income }
@@ -814,24 +814,16 @@ class _ReportPage extends StatelessWidget {
                     '共$title${monthRecords.length}笔，合计¥${total.toStringAsFixed(2)}',
               ),
               const SizedBox(height: 16),
-              _BarChartCard(records: records, selectedMonth: selectedMonth),
+              _BarChartCard(
+                records: records,
+                selectedMonth: selectedMonth,
+                reportType: reportType,
+              ),
               const SizedBox(height: 16),
               _DonutSection(
                 title: reportType == _ReportType.income ? '收入来源' : '支出分类',
                 stats: categories,
                 emptyText: '暂无$title分类数据',
-              ),
-              const SizedBox(height: 18),
-              _DonutSection(
-                title: reportType == _ReportType.income ? '支出分类' : '收入来源',
-                stats: _buildCategoryStats(
-                  records,
-                  selectedMonth,
-                  reportType != _ReportType.income,
-                ),
-                emptyText: reportType == _ReportType.income
-                    ? '暂无支出分类数据'
-                    : '暂无收入来源数据',
               ),
               const SizedBox(height: 40),
             ],
@@ -958,19 +950,26 @@ class _ReportSummary extends StatelessWidget {
 class _BarChartCard extends StatelessWidget {
   final List<_BillRecord> records;
   final DateTime selectedMonth;
+  final _ReportType reportType;
 
-  const _BarChartCard({required this.records, required this.selectedMonth});
+  const _BarChartCard({
+    required this.records,
+    required this.selectedMonth,
+    required this.reportType,
+  });
 
   @override
   Widget build(BuildContext context) {
     final months = List.generate(
-      12,
-      (index) => DateTime(selectedMonth.year, selectedMonth.month - 11 + index),
+      6,
+      (index) => DateTime(selectedMonth.year, selectedMonth.month - 5 + index),
     );
+    final income = reportType == _ReportType.income;
+    final chartColor = income ? AppColors.income : AppColors.expense;
+    final chartTitle = income ? '每月收入趋势' : '每月支出趋势';
     final maxValue = months.fold<double>(1, (max, month) {
-      final income = _monthTotal(records, month, true);
-      final expense = _monthTotal(records, month, false);
-      return math.max(max, math.max(income, expense));
+      final value = _monthTotal(records, month, income);
+      return math.max(max, value);
     });
 
     return Container(
@@ -984,32 +983,32 @@ class _BarChartCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('每月收支对比', style: AppTypography.subtitle.copyWith(fontSize: 16)),
+          Text(
+            chartTitle,
+            style: AppTypography.subtitle.copyWith(fontSize: 16),
+          ),
           const SizedBox(height: 14),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: months.map((month) {
-                return _BarMonth(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: months.map((month) {
+              final selected = _isSameMonth(month, selectedMonth);
+              return Expanded(
+                child: _BarMonth(
                   month: month,
-                  income: _monthTotal(records, month, true),
-                  expense: _monthTotal(records, month, false),
+                  value: _monthTotal(records, month, income),
                   maxValue: maxValue,
-                  selected: _isSameMonth(month, selectedMonth),
-                );
-              }).toList(),
-            ),
+                  color: chartColor,
+                  selected: selected,
+                  showYearMarker: month.month == 1,
+                ),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 12),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _LegendDot(color: AppColors.income, label: '收入'),
-              SizedBox(width: 16),
-              _LegendDot(color: AppColors.expense, label: '支出'),
+              _LegendDot(color: chartColor, label: income ? '收入' : '支出'),
             ],
           ),
         ],
@@ -1020,17 +1019,19 @@ class _BarChartCard extends StatelessWidget {
 
 class _BarMonth extends StatelessWidget {
   final DateTime month;
-  final double income;
-  final double expense;
+  final double value;
   final double maxValue;
+  final Color color;
   final bool selected;
+  final bool showYearMarker;
 
   const _BarMonth({
     required this.month,
-    required this.income,
-    required this.expense,
+    required this.value,
     required this.maxValue,
+    required this.color,
     required this.selected,
+    required this.showYearMarker,
   });
 
   @override
@@ -1049,31 +1050,57 @@ class _BarMonth extends StatelessWidget {
         children: [
           SizedBox(
             height: 112,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _MiniBar(
-                  value: income,
-                  maxValue: maxValue,
-                  color: AppColors.income,
-                ),
-                const SizedBox(width: 4),
-                _MiniBar(
-                  value: expense,
-                  maxValue: maxValue,
-                  color: AppColors.expense,
-                ),
-              ],
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: _MiniBar(
+                value: value,
+                maxValue: maxValue,
+                color: color,
+                selected: selected,
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            '${month.month}月',
-            style: AppTypography.caption.copyWith(
-              fontSize: 12,
-              color: selected ? _primaryBlue : _secondaryText,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          SizedBox(
+            height: 32,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                if (showYearMarker)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _primaryBlue.withValues(alpha: 0.72),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${month.year}',
+                        style: AppTypography.caption.copyWith(
+                          fontSize: 9,
+                          height: 1,
+                          color: _secondaryText,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  const SizedBox(height: 9),
+                Text(
+                  '${month.month}月',
+                  style: AppTypography.caption.copyWith(
+                    fontSize: 12,
+                    height: 1.2,
+                    color: selected ? _primaryBlue : _secondaryText,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1086,22 +1113,24 @@ class _MiniBar extends StatelessWidget {
   final double value;
   final double maxValue;
   final Color color;
+  final bool selected;
 
   const _MiniBar({
     required this.value,
     required this.maxValue,
     required this.color,
+    required this.selected,
   });
 
   @override
   Widget build(BuildContext context) {
     final height = value <= 0 ? 4.0 : math.max(8.0, 104 * value / maxValue);
     return Container(
-      width: 12,
+      width: 18,
       height: height,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withValues(alpha: selected ? 0.88 : 0.28),
+        borderRadius: BorderRadius.circular(9),
       ),
     );
   }
