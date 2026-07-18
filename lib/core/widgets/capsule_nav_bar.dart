@@ -5,12 +5,16 @@ import '../../app/theme/app_shadows.dart';
 import '../../app/theme/app_durations.dart';
 import '../../app/theme/app_theme.dart';
 
-/// 胶囊底部导航 — 4 Tab
+/// 胶囊顶部导航 — 4 Tab
 class CapsuleNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onTap;
 
-  const CapsuleNavBar({super.key, required this.selectedIndex, required this.onTap});
+  const CapsuleNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onTap,
+  });
 
   static const _tabs = [
     _Tab(Icons.menu_book_outlined, '日记'),
@@ -21,20 +25,39 @@ class CapsuleNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.bg,
-        boxShadow: [AppShadows.nav],
-      ),
-      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8, top: 8),
+    return ColoredBox(
+      color: AppColors.bg,
       child: SafeArea(
-        top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(_tabs.length, (i) {
-            final sel = selectedIndex == i;
-            return _NavItem(tab: _tabs[i], selected: sel, onTap: () => onTap(i));
-          }),
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+          child: Center(
+            child: Container(
+              height: 58,
+              constraints: const BoxConstraints(maxWidth: 560),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.card.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(29),
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.72),
+                ),
+                boxShadow: const [AppShadows.nav],
+              ),
+              child: Row(
+                children: List.generate(_tabs.length, (i) {
+                  final sel = selectedIndex == i;
+                  return Expanded(
+                    child: _NavItem(
+                      tab: _tabs[i],
+                      selected: sel,
+                      onTap: () => onTap(i),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -52,7 +75,11 @@ class _NavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _NavItem({required this.tab, required this.selected, required this.onTap});
+  const _NavItem({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -66,26 +93,35 @@ class _NavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: AppDurations.medium,
           curve: AppTheme.easeOutQuart,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: selected ? AppColors.navSelected : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(21),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(tab.icon, size: 20, color: selected ? AppColors.navText : AppColors.navUnselected),
-              if (selected) ...[
-                const SizedBox(width: 5),
-                AnimatedOpacity(
-                  opacity: selected ? 1.0 : 0.0,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  tab.icon,
+                  size: 21,
+                  color: selected ? AppColors.navText : AppColors.text,
+                ),
+                const SizedBox(width: 6),
+                AnimatedDefaultTextStyle(
                   duration: AppDurations.short,
-                  child: Text(tab.label, style: AppTypography.navLabel.copyWith(
-                    color: AppColors.navText, fontWeight: FontWeight.w600,
-                  )),
+                  curve: AppTheme.easeOutQuart,
+                  style: AppTypography.navLabel.copyWith(
+                    color: selected ? AppColors.navText : AppColors.text,
+                    fontSize: 15,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                  child: Text(tab.label),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

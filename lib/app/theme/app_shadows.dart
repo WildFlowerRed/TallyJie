@@ -13,8 +13,8 @@ class AppShadows {
 
   static const BoxShadow nav = BoxShadow(
     color: Color(0x05000000),
-    blurRadius: 10,
-    offset: Offset(0, -1),
+    blurRadius: 12,
+    offset: Offset(0, 2),
     spreadRadius: 0,
   );
 

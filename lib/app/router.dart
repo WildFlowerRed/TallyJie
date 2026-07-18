@@ -14,25 +14,60 @@ class AppRouter {
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => Scaffold(
-          body: shell,
-          bottomNavigationBar: CapsuleNavBar(
-            selectedIndex: shell.currentIndex,
-            onTap: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+          body: Column(
+            children: [
+              CapsuleNavBar(
+                selectedIndex: shell.currentIndex,
+                onTap: (i) =>
+                    shell.goBranch(i, initialLocation: i == shell.currentIndex),
+              ),
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: shell,
+                ),
+              ),
+            ],
           ),
         ),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/diary', pageBuilder: (c, s) => const NoTransitionPage(child: DiaryPage())),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/ledger', pageBuilder: (c, s) => const NoTransitionPage(child: LedgerPage())),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/statistics', pageBuilder: (c, s) => const NoTransitionPage(child: StatisticsPage())),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/settings', pageBuilder: (c, s) => const NoTransitionPage(child: SettingsPage())),
-          ]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/diary',
+                pageBuilder: (c, s) =>
+                    const NoTransitionPage(child: DiaryPage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/ledger',
+                pageBuilder: (c, s) =>
+                    const NoTransitionPage(child: LedgerPage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/statistics',
+                pageBuilder: (c, s) =>
+                    const NoTransitionPage(child: StatisticsPage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                pageBuilder: (c, s) =>
+                    const NoTransitionPage(child: SettingsPage()),
+              ),
+            ],
+          ),
         ],
       ),
     ],
