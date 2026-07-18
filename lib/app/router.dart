@@ -20,6 +20,7 @@ class AppRouter {
                 selectedIndex: shell.currentIndex,
                 onTap: (i) =>
                     shell.goBranch(i, initialLocation: i == shell.currentIndex),
+                onSettingsTap: () => showSettingsDialog(context),
               ),
               Expanded(
                 child: MediaQuery.removePadding(
@@ -56,15 +57,6 @@ class AppRouter {
                 path: '/statistics',
                 pageBuilder: (c, s) =>
                     const NoTransitionPage(child: StatisticsPage()),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/settings',
-                pageBuilder: (c, s) =>
-                    const NoTransitionPage(child: SettingsPage()),
               ),
             ],
           ),

@@ -5,22 +5,23 @@ import '../../app/theme/app_shadows.dart';
 import '../../app/theme/app_durations.dart';
 import '../../app/theme/app_theme.dart';
 
-/// 胶囊顶部导航 — 4 Tab
+/// 胶囊顶部导航 — 3 Tab + 设置入口
 class CapsuleNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onTap;
+  final VoidCallback onSettingsTap;
 
   const CapsuleNavBar({
     super.key,
     required this.selectedIndex,
     required this.onTap,
+    required this.onSettingsTap,
   });
 
   static const _tabs = [
     _Tab(Icons.menu_book_outlined, '日记'),
     _Tab(Icons.edit_note, '记账'),
     _Tab(Icons.pie_chart_outline, '统计'),
-    _Tab(Icons.settings_outlined, '设置'),
   ];
 
   @override
@@ -30,33 +31,73 @@ class CapsuleNavBar extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-          child: Center(
-            child: Container(
-              height: 58,
-              constraints: const BoxConstraints(maxWidth: 560),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.card.withValues(alpha: 0.94),
-                borderRadius: BorderRadius.circular(29),
-                border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.72),
-                ),
-                boxShadow: const [AppShadows.nav],
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: _SettingsButton(onTap: onSettingsTap),
               ),
-              child: Row(
-                children: List.generate(_tabs.length, (i) {
-                  final sel = selectedIndex == i;
-                  return Expanded(
-                    child: _NavItem(
-                      tab: _tabs[i],
-                      selected: sel,
-                      onTap: () => onTap(i),
+              const SizedBox(height: 14),
+              Center(
+                child: Container(
+                  height: 58,
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.card.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(29),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.72),
                     ),
-                  );
-                }),
+                    boxShadow: const [AppShadows.nav],
+                  ),
+                  child: Row(
+                    children: List.generate(_tabs.length, (i) {
+                      final sel = selectedIndex == i;
+                      return Expanded(
+                        child: _NavItem(
+                          tab: _tabs[i],
+                          selected: sel,
+                          onTap: () => onTap(i),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _SettingsButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedScale(
+        scale: 1,
+        duration: AppDurations.short,
+        curve: AppTheme.easeOutQuart,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            Icons.settings_outlined,
+            size: 23,
+            color: AppColors.navUnselected,
           ),
         ),
       ),

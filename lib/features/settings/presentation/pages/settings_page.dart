@@ -1,124 +1,156 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
+import '../../../../app/theme/app_typography.dart';
 
-/// 设置页
-class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key});
-  @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+Future<void> showSettingsDialog(BuildContext context) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '关闭设置',
+    barrierColor: Colors.black.withValues(alpha: 0.18),
+    transitionDuration: const Duration(milliseconds: 300),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const _SettingsDialog();
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutQuart,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
 }
 
-class _SettingsPageState extends ConsumerState<SettingsPage> {
-  String _themeMode = '浅色';
+class _SettingsDialog extends StatefulWidget {
+  const _SettingsDialog();
+
+  @override
+  State<_SettingsDialog> createState() => _SettingsDialogState();
+}
+
+class _SettingsDialogState extends State<_SettingsDialog> {
+  String _theme = '默认浅色';
+  String? _fileStatus;
+
+  static const _themes = [
+    _ThemeOption('默认浅色', Color(0xFFFAF8F5), Color(0xFF1C1C1E)),
+    _ThemeOption('流心粉色', Color(0xFFFFEEF3), Color(0xFFC96C86)),
+    _ThemeOption('风雅青色', Color(0xFFE7F2EF), Color(0xFF5E7A6B)),
+    _ThemeOption('经典黑白', Color(0xFFF7F7F7), Color(0xFF222222)),
+  ];
+
+  void _setFileStatus(String value) {
+    setState(() => _fileStatus = value);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 12),
-              Center(child: Text('设置', style: AppTypography.title)),
-              const SizedBox(height: 24),
-
-              // 头像 + 版本
-              Center(
-                child: Column(children: [
-                  Container(
-                    width: 72, height: 72,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surface),
-                    child: const Icon(Icons.person_outline, size: 36, color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('TallyJie', style: AppTypography.subtitle),
-                  Text('v1.0.0', style: AppTypography.caption),
-                ]),
-              ),
-              const SizedBox(height: 28),
-
-              // 列表
-              _SectionCard(
-                title: '外观',
+    return SafeArea(
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 430),
+            margin: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [AppShadows.card],
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _ListTile(
+                  Row(
+                    children: [
+                      Text('设置', style: AppTypography.subtitle),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                        color: AppColors.navUnselected,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
                     icon: Icons.palette_outlined,
-                    label: '主题设置',
-                    trailing: Text(_themeMode, style: AppTypography.caption),
-                    onTap: () => _showThemePicker(),
+                    title: '主题设置',
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < _themes.length; i++) ...[
+                          _ThemeTile(
+                            option: _themes[i],
+                            selected: _theme == _themes[i].label,
+                            onTap: () {
+                              setState(() => _theme = _themes[i].label);
+                            },
+                          ),
+                          if (i != _themes.length - 1)
+                            const SizedBox(height: 8),
+                        ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
+                    icon: Icons.file_download_outlined,
+                    title: '数据导出',
+                    child: _FileAction(
+                      title: 'TallyJie_backup.zip',
+                      subtitle: '选择手机本地位置保存 ZIP 备份包',
+                      buttonLabel: '选择导出位置',
+                      onTap: () => _setFileStatus('已选择导出位置，等待后端打包 ZIP'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
+                    icon: Icons.file_upload_outlined,
+                    title: '数据导入',
+                    child: _FileAction(
+                      title: '导入 ZIP 备份包',
+                      subtitle: '从手机本地文件中选择 TallyJie 备份包',
+                      buttonLabel: '选择导入文件',
+                      onTap: () => _setFileStatus('已打开本地文件选择器，等待选择 ZIP'),
+                    ),
+                  ),
+                  if (_fileStatus != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: AppRadius.sm,
+                      ),
+                      child: Text(
+                        _fileStatus!,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 16),
-
-              _SectionCard(
-                title: '数据管理',
-                children: [
-                  _ListTile(icon: Icons.category_outlined, label: '分类管理', onTap: () {}),
-                  _ListTile(icon: Icons.account_balance_wallet_outlined, label: '账户管理', onTap: () {}),
-                  _ListTile(icon: Icons.mood_outlined, label: '心情管理', onTap: () {}),
-                  _ListTile(icon: Icons.wb_sunny_outlined, label: '天气管理', onTap: () {}),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              _SectionCard(
-                title: '备份与恢复',
-                children: [
-                  _ListTile(icon: Icons.file_download_outlined, label: '数据导出', subtitle: 'JSON / CSV 格式', onTap: () {}),
-                  _ListTile(icon: Icons.file_upload_outlined, label: '数据导入', subtitle: '从备份文件恢复', onTap: () {}),
-                  _ListTile(icon: Icons.backup_outlined, label: '备份管理', subtitle: '自动备份设置', onTap: () {}),
-                  _ListTile(icon: Icons.cleaning_services_outlined, label: '图片缓存清理', onTap: () {}),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              _SectionCard(
-                title: '其他',
-                children: [
-                  _ListTile(icon: Icons.info_outline, label: '关于 TallyJie', onTap: () {}),
-                ],
-              ),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showThemePicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheet),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('主题设置', style: AppTypography.subtitle),
-              const SizedBox(height: 16),
-              for (final mode in ['浅色', '深色', '跟随系统'])
-                ListTile(
-                  title: Text(mode, style: AppTypography.body),
-                  trailing: _themeMode == mode ? const Icon(Icons.check, color: AppColors.accent) : null,
-                  onTap: () {
-                    setState(() => _themeMode = mode);
-                    Navigator.pop(ctx);
-                  },
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -127,36 +159,175 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 }
 
 class _SectionCard extends StatelessWidget {
+  final IconData icon;
   final String title;
-  final List<Widget> children;
-  const _SectionCard({required this.title, required this.children});
+  final Widget child;
+
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: AppRadius.lg,
+        border: Border.all(color: AppColors.divider.withValues(alpha: 0.72)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 19, color: AppColors.text),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: AppTypography.body.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeTile extends StatelessWidget {
+  final _ThemeOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ThemeTile({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutQuart,
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.text : AppColors.card,
+          borderRadius: AppRadius.md,
+          border: Border.all(
+            color: selected ? AppColors.text : AppColors.divider,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: option.background,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.divider),
+              ),
+              alignment: Alignment.center,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: option.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                option.label,
+                style: AppTypography.body.copyWith(
+                  fontSize: 14,
+                  color: selected ? AppColors.white : AppColors.text,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (selected)
+              const Icon(Icons.check, size: 18, color: AppColors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FileAction extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String buttonLabel;
+  final VoidCallback onTap;
+
+  const _FileAction({
+    required this.title,
+    required this.subtitle,
+    required this.buttonLabel,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(title, style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600)),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: AppRadius.lg,
-            boxShadow: const [AppShadows.card],
+        Text(
+          title,
+          style: AppTypography.body.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
-          child: Column(
-            children: children.asMap().entries.map((e) {
-              final last = e.key == children.length - 1;
-              return Column(children: [
-                e.value,
-                if (!last) const Padding(
-                  padding: EdgeInsets.only(left: 52),
-                  child: Divider(height: 1),
+        ),
+        const SizedBox(height: 4),
+        Text(subtitle, style: AppTypography.caption),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.text,
+              borderRadius: AppRadius.md,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  buttonLabel,
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ]);
-            }).toList(),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.folder_open_outlined,
+                  size: 18,
+                  color: AppColors.white,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -164,24 +335,10 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _ListTile extends StatelessWidget {
-  final IconData icon;
+class _ThemeOption {
   final String label;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback onTap;
-  const _ListTile({required this.icon, required this.label, this.subtitle, this.trailing, required this.onTap});
+  final Color background;
+  final Color accent;
 
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: AppColors.text),
-      title: Text(label, style: AppTypography.body.copyWith(fontSize: 15)),
-      subtitle: subtitle != null ? Text(subtitle!, style: AppTypography.caption.copyWith(fontSize: 12)) : null,
-      trailing: trailing ?? const Icon(Icons.chevron_right, color: AppColors.textHint),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
-    );
-  }
+  const _ThemeOption(this.label, this.background, this.accent);
 }
