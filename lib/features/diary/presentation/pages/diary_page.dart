@@ -13,7 +13,7 @@ String _formatDiaryHeaderDate(DateTime date) {
 }
 
 String _formatDiaryCardSubtitle(DateTime date) {
-  return '${date.year}年 ${DateHelpers.weekdayName(date)}';
+  return '${date.year}年 ${DateHelpers.weekdayName(date)} · ${_LunarCalendar.fullLabelFor(date)}';
 }
 
 String _weatherGlyph(String weather, String label) {
@@ -1504,6 +1504,21 @@ class _LunarCalendar {
     0x0d520,
   ];
 
+  static const _monthLabels = [
+    '正月',
+    '二月',
+    '三月',
+    '四月',
+    '五月',
+    '六月',
+    '七月',
+    '八月',
+    '九月',
+    '十月',
+    '冬月',
+    '腊月',
+  ];
+
   static const _dayLabels = [
     '初一',
     '初二',
@@ -1538,8 +1553,21 @@ class _LunarCalendar {
   ];
 
   static String labelFor(DateTime date) {
+    final lunar = _resolve(date);
+    if (lunar == null) return '';
+    return _dayLabels[lunar.day - 1];
+  }
+
+  static String fullLabelFor(DateTime date) {
+    final lunar = _resolve(date);
+    if (lunar == null) return '';
+    final month = '${lunar.isLeap ? '闰' : ''}${_monthLabels[lunar.month - 1]}';
+    return '农历$month${_dayLabels[lunar.day - 1]}';
+  }
+
+  static _LunarDate? _resolve(DateTime date) {
     if (date.isBefore(_baseDate) || date.year > 2100) {
-      return '';
+      return null;
     }
 
     var offset = DateTime(
@@ -1580,7 +1608,7 @@ class _LunarCalendar {
     }
 
     final lunarDay = offset + 1;
-    return _dayLabels[lunarDay - 1];
+    return _LunarDate(month: lunarMonth, day: lunarDay, isLeap: isLeap);
   }
 
   static int _yearDays(int year) {
@@ -1604,6 +1632,18 @@ class _LunarCalendar {
   static int _monthDays(int year, int month) {
     return (_lunarInfo[year - 1900] & (0x10000 >> month)) != 0 ? 30 : 29;
   }
+}
+
+class _LunarDate {
+  final int month;
+  final int day;
+  final bool isLeap;
+
+  const _LunarDate({
+    required this.month,
+    required this.day,
+    required this.isLeap,
+  });
 }
 
 class _IconBubble extends StatelessWidget {
