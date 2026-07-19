@@ -956,8 +956,8 @@ class _ChipGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeColor = AppColors.navSelected;
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: 10,
+      runSpacing: 10,
       children: items.map((item) {
         final id = item['id'] as int;
         final sel = selectedId == id;
@@ -968,7 +968,7 @@ class _ChipGrid extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutQuart,
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(
               color: sel ? themeColor : themeColor.withValues(alpha: 0.08),
               borderRadius: AppRadius.capsule,
@@ -982,13 +982,13 @@ class _ChipGrid extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(item['icon'] as IconData, size: 23, color: foreground),
-                const SizedBox(width: 9),
+                Icon(item['icon'] as IconData, size: 20, color: foreground),
+                const SizedBox(width: 7),
                 Text(
                   item['name'] as String,
                   style: AppTypography.caption.copyWith(
                     color: foreground,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),

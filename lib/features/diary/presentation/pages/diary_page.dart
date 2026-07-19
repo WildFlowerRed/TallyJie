@@ -16,9 +16,12 @@ String _formatDiaryHeaderDate(DateTime date) {
   return '${date.year}年${date.month}月${date.day}日${DateHelpers.weekdayName(date)}';
 }
 
-String _formatDiaryCardSubtitle(DateTime date) {
-  return '${date.year}年 ${DateHelpers.weekdayName(date)} · ${_LunarCalendar.fullLabelFor(date)}';
+String _formatDiaryCardYearWeekday(DateTime date) {
+  return '${date.year}年 ${DateHelpers.weekdayName(date)}';
 }
+
+String _formatDiaryCardLunar(DateTime date) =>
+    _LunarCalendar.fullLabelFor(date);
 
 String _weatherGlyph(String weather, String label) {
   switch (weather) {
@@ -984,10 +987,20 @@ class _DiaryContent extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            _formatDiaryCardSubtitle(date),
+                            _formatDiaryCardYearWeekday(date),
                             style: AppTypography.caption.copyWith(
                               fontSize: 20,
                               color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _formatDiaryCardLunar(date),
+                            style: AppTypography.caption.copyWith(
+                              fontSize: 17,
+                              color: AppColors.textSecondary.withValues(
+                                alpha: 0.82,
+                              ),
                             ),
                           ),
                         ],
@@ -1353,12 +1366,23 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
                                         ),
                                         const SizedBox(height: 12),
                                         Text(
-                                          _formatDiaryCardSubtitle(
+                                          _formatDiaryCardYearWeekday(
                                             _entry.entryDate,
                                           ),
                                           style: AppTypography.caption.copyWith(
                                             fontSize: 20,
                                             color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          _formatDiaryCardLunar(
+                                            _entry.entryDate,
+                                          ),
+                                          style: AppTypography.caption.copyWith(
+                                            fontSize: 17,
+                                            color: AppColors.textSecondary
+                                                .withValues(alpha: 0.82),
                                           ),
                                         ),
                                       ],
@@ -3022,15 +3046,15 @@ class _IconBubble extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 66,
-          height: 66,
+          width: 58,
+          height: 58,
           decoration: BoxDecoration(
             color: background.withValues(alpha: 0.72),
             shape: BoxShape.circle,
             boxShadow: AppShadows.card,
           ),
           alignment: Alignment.center,
-          child: Text(label, style: const TextStyle(fontSize: 32)),
+          child: Text(label, style: const TextStyle(fontSize: 28)),
         ),
       ),
     );

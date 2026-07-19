@@ -312,73 +312,12 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   }
 
   Future<void> _openBudgetEditor() async {
-    final current = _budget?.budgetAmount;
-    final controller = TextEditingController(
-      text: current == null ? '' : _formatMoney(current),
-    );
     final amount = await showDialog<double>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => Dialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '编辑月预算',
-                style: AppTypography.subtitle.copyWith(fontSize: 26),
-              ),
-              const SizedBox(height: 22),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                style: AppTypography.body.copyWith(fontSize: 24),
-                decoration: InputDecoration(
-                  prefixText: '¥ ',
-                  hintText: '1000.00',
-                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消', style: TextStyle(fontSize: 18)),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    style: AppTheme.primaryFilledButtonStyle,
-                    onPressed: () {
-                      final value = double.tryParse(
-                        controller.text.replaceAll(',', '').trim(),
-                      );
-                      if (value == null || value < 0) return;
-                      Navigator.of(context).pop(value);
-                    },
-                    child: const Text('保存', style: TextStyle(fontSize: 18)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (context) =>
+          _BudgetEditorDialog(initialAmount: _budget?.budgetAmount),
     );
-    controller.dispose();
     if (amount == null) return;
     await LocalDataApi.instance.setBudget(
       month: DateTime.now(),
@@ -549,6 +488,107 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   }
 }
 
+class _BudgetEditorDialog extends StatefulWidget {
+  final double? initialAmount;
+
+  const _BudgetEditorDialog({required this.initialAmount});
+
+  @override
+  State<_BudgetEditorDialog> createState() => _BudgetEditorDialogState();
+}
+
+class _BudgetEditorDialogState extends State<_BudgetEditorDialog> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.initialAmount == null
+          ? ''
+          : _formatMoney(widget.initialAmount!),
+    );
+    _focusNode = FocusNode();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close([double? value]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(value);
+  }
+
+  void _save() {
+    final value = double.tryParse(_controller.text.replaceAll(',', '').trim());
+    if (value == null || value < 0) return;
+    _close(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('编辑月预算', style: AppTypography.subtitle.copyWith(fontSize: 26)),
+            const SizedBox(height: 22),
+            TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: AppTypography.body.copyWith(fontSize: 24),
+              decoration: InputDecoration(
+                prefixText: '¥ ',
+                hintText: '1000.00',
+                hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 18,
+                ),
+              ),
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Spacer(),
+                TextButton(
+                  onPressed: _close,
+                  child: const Text('取消', style: TextStyle(fontSize: 18)),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  style: AppTheme.primaryFilledButtonStyle,
+                  onPressed: _save,
+                  child: const Text('保存', style: TextStyle(fontSize: 18)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FilterToolbar extends StatelessWidget {
   final _BillTypeFilter billFilter;
   final _TimeFilter timeFilter;
@@ -632,17 +672,17 @@ class _PopupPill<T> extends StatelessWidget {
         return options.map((option) {
           return PopupMenuItem<T>(
             value: option.value,
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 5),
                 child: Text(
                   option.label,
                   style: AppTypography.caption.copyWith(
                     color: _primaryBlue,
-                    fontSize: 19,
+                    fontSize: 17,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -666,7 +706,7 @@ class _PopupPill<T> extends StatelessWidget {
           children: [
             Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 20),
+            const Icon(Icons.keyboard_arrow_down, size: 18),
           ],
         ),
       ),
@@ -700,9 +740,9 @@ class _ActionPill extends StatelessWidget {
             if (icon != null) ...[
               Transform.translate(
                 offset: const Offset(0, 1),
-                child: Icon(icon, size: 22, color: _primaryBlue),
+                child: Icon(icon, size: 19, color: _primaryBlue),
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 4),
             ],
             Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
           ],
@@ -720,8 +760,8 @@ class _PillShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -732,7 +772,7 @@ class _PillShell extends StatelessWidget {
       child: DefaultTextStyle.merge(
         style: AppTypography.caption.copyWith(
           color: _primaryBlue,
-          fontSize: 19,
+          fontSize: 17,
           fontWeight: FontWeight.w600,
         ),
         child: IconTheme(
