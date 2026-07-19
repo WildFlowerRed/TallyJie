@@ -1,11 +1,15 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
+import 'package:geolocator/geolocator.dart' as geolocator;
+import 'package:image_picker/image_picker.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/constants.dart';
+import '../../../../core/services/local_data_api.dart';
 import '../../../../core/utils/date_helpers.dart';
 
 String _formatDiaryHeaderDate(DateTime date) {
@@ -46,155 +50,475 @@ class DiaryPage extends ConsumerStatefulWidget {
 
 class _DiaryPageState extends ConsumerState<DiaryPage> {
   late DateTime _currentDate;
-  final PageController _pageController = PageController(initialPage: 0);
   final TextEditingController _textController = TextEditingController();
-  Timer? _autoSaveTimer;
+  final ImagePicker _imagePicker = ImagePicker();
 
   String _mood = '😊';
   String _moodLabel = '开心';
   String _weather = 'sunny';
   String _weatherLabel = '晴';
-  String _content = '';
   List<String> _images = [];
-  String? _savedTime;
-
-  // 缓存三天的数据
-  final Map<String, _DayData> _cache = {};
+  String? _draftLocationName;
+  List<DiaryEntryDto> _entries = [];
+  Set<String> _entryDateKeys = {};
+  bool _loadingDiary = true;
 
   @override
   void initState() {
     super.initState();
     _currentDate = DateTime.now();
-    _pageController.addListener(_onPageChanged);
+    _loadDiaryState();
+    LocalDataApi.instance.diaryVersion.addListener(_handleDiaryChanged);
   }
 
   @override
   void dispose() {
-    _autoSaveTimer?.cancel();
+    LocalDataApi.instance.diaryVersion.removeListener(_handleDiaryChanged);
     _textController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
-  void _onPageChanged() {
-    final page = _pageController.page?.round() ?? 0;
-    final newDate = _currentDate.add(Duration(days: page - _currentPageIndex));
-    if (!DateHelpers.isSameDay(newDate, _currentDate)) {
-      _saveCurrent();
-      _currentDate = newDate;
-      _loadDate(newDate);
-      setState(() {});
-    }
-  }
-
-  int get _currentPageIndex => 0;
-
-  void _saveCurrent() {
-    _content = _textController.text;
-    _cache[_dateKey(_currentDate)] = _DayData(
-      content: _content,
-      mood: _mood,
-      moodLabel: _moodLabel,
-      weather: _weather,
-      weatherLabel: _weatherLabel,
-      images: List.from(_images),
-    );
-  }
-
-  void _loadDate(DateTime date) {
-    final key = _dateKey(date);
-    final cached = _cache[key];
-    if (cached != null) {
-      _content = cached.content;
-      _mood = cached.mood;
-      _moodLabel = cached.moodLabel;
-      _weather = cached.weather;
-      _weatherLabel = cached.weatherLabel;
-      _images = List.from(cached.images);
-    } else {
-      _content = '';
-      _mood = '😊';
-      _moodLabel = '开心';
-      _weather = 'sunny';
-      _weatherLabel = '晴';
-      _images = [];
-    }
-    _textController.text = _content;
-    _savedTime = null;
-  }
+  void _handleDiaryChanged() => _loadDiaryState(keepDraftForToday: true);
 
   String _dateKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  void _scheduleAutoSave() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(seconds: 1), () {
-      _content = _textController.text;
-      _saveCurrent();
-      setState(() {
-        _savedTime =
-            '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}';
-      });
+  bool get _isTodaySelected => DateHelpers.isToday(_currentDate);
+
+  Future<void> _loadDiaryState({bool keepDraftForToday = false}) async {
+    final dates = await LocalDataApi.instance.listDiaryEntryDates();
+    final entries = await LocalDataApi.instance.listDiaryEntries(_currentDate);
+    final latestEntry = entries.isEmpty ? null : entries.first;
+    if (!mounted) return;
+    setState(() {
+      _entryDateKeys = dates.map(_dateKey).toSet();
+      _entries = entries;
+      _loadingDiary = false;
+      _mood = latestEntry?.moodIcon ?? '😊';
+      _moodLabel = latestEntry?.moodLabel ?? '开心';
+      _weather = latestEntry?.weatherKey ?? 'sunny';
+      _weatherLabel = latestEntry?.weatherLabel ?? '晴';
+      if (!_isTodaySelected || !keepDraftForToday) {
+        _textController.clear();
+        _images = [];
+        _draftLocationName = null;
+      }
     });
+  }
+
+  Future<void> _loadDate(DateTime date) async {
+    setState(() {
+      _currentDate = DateTime(date.year, date.month, date.day);
+      _loadingDiary = true;
+      _draftLocationName = null;
+    });
+    await _loadDiaryState();
+  }
+
+  List<DateTime> get _navigableDates {
+    final dates = _entryDateKeys
+        .map(DateTime.parse)
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toList();
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    if (!dates.any((date) => DateHelpers.isSameDay(date, todayOnly))) {
+      dates.add(todayOnly);
+    }
+    dates.sort();
+    return dates;
   }
 
   void _goToPrevDay() {
-    _saveCurrent();
-    setState(() {
-      _currentDate = _currentDate.subtract(const Duration(days: 1));
-      _loadDate(_currentDate);
-    });
+    DateTime? previous;
+    for (final date in _navigableDates) {
+      if (date.isBefore(_currentDate)) previous = date;
+    }
+    if (previous == null) return;
+    _loadDate(previous);
   }
 
   void _goToNextDay() {
-    _saveCurrent();
-    setState(() {
-      _currentDate = _currentDate.add(const Duration(days: 1));
-      _loadDate(_currentDate);
-    });
+    if (_isTodaySelected) {
+      _showTodayBoundaryWarning();
+      return;
+    }
+    DateTime? next;
+    for (final date in _navigableDates) {
+      if (date.isAfter(_currentDate)) {
+        next = date;
+        break;
+      }
+    }
+    if (next == null) {
+      _showTodayBoundaryWarning();
+      return;
+    }
+    _loadDate(next);
+  }
+
+  Future<void> _showTodayBoundaryWarning() {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.navSelected,
+                size: 34,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '已经是今日日记',
+                style: AppTypography.subtitle.copyWith(fontSize: 24),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '明天的故事，等明天再写。',
+                textAlign: TextAlign.center,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 22),
+              FilledButton(
+                style: AppTheme.primaryFilledButtonStyle,
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('我知道了', style: TextStyle(fontSize: 18)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _jumpToDate(DateTime date) {
-    _saveCurrent();
-    setState(() {
-      _currentDate = DateTime(date.year, date.month, date.day);
-      _loadDate(_currentDate);
-    });
+    _loadDate(date);
   }
 
   Future<void> _showCalendarPicker() async {
     final selected = await showDialog<DateTime>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => _CalendarDialog(selectedDate: _currentDate),
+      builder: (context) => _CalendarDialog(
+        selectedDate: _currentDate,
+        diaryDateKeys: _entryDateKeys,
+      ),
     );
     if (selected != null) {
       _jumpToDate(selected);
     }
   }
 
+  Future<void> _saveTodayDiary() async {
+    final draftText = _textController.text.trim();
+    if (draftText.isEmpty && _images.isEmpty && _draftLocationName == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('先写一点今天的内容吧')));
+      return;
+    }
+    final entry = await LocalDataApi.instance.saveDiaryEntry(
+      SaveDiaryEntryInput(
+        entryDate: _currentDate,
+        content: draftText,
+        moodKey: _moodLabel,
+        moodLabel: _moodLabel,
+        moodIcon: _mood,
+        weatherKey: _weather,
+        weatherLabel: _weatherLabel,
+        weatherIcon: _weatherGlyph(_weather, _weatherLabel),
+        lunarDate: _LunarCalendar.fullLabelFor(_currentDate),
+        locationName: _draftLocationName,
+        images: _images,
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _entries = [entry, ..._entries];
+      _entryDateKeys = {..._entryDateKeys, _dateKey(_currentDate)};
+      _textController.clear();
+      _images = [];
+      _draftLocationName = null;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('日记已保存')));
+  }
+
+  Future<DiaryEntryDto?> _openEditDiaryDialog(DiaryEntryDto entry) async {
+    final controller = TextEditingController(text: entry.content);
+    final draftImages = List<String>.of(entry.images);
+    final locationController = TextEditingController(
+      text: entry.locationName ?? '',
+    );
+    final updated = await showDialog<_DiaryEditResult>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+            backgroundColor: AppColors.card,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 540),
+              padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '编辑日记',
+                      style: AppTypography.subtitle.copyWith(fontSize: 32),
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: controller,
+                      maxLines: null,
+                      minLines: 6,
+                      style: AppTypography.body.copyWith(fontSize: 26),
+                      decoration: InputDecoration(
+                        hintText: '今天发生了什么...',
+                        hintStyle: TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _ImagePreviewWrap(
+                      images: draftImages,
+                      editable: true,
+                      onRemove: (index) =>
+                          setDialogState(() => draftImages.removeAt(index)),
+                    ),
+                    const SizedBox(height: 22),
+                    TextField(
+                      controller: locationController,
+                      style: AppTypography.body.copyWith(fontSize: 23),
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.place_outlined,
+                          color: AppColors.navSelected,
+                          size: 30,
+                        ),
+                        hintText: '添加更详细的位置',
+                        hintStyle: TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
+                            ),
+                          ),
+                          onPressed: () async {
+                            final image = await _pickOneImage();
+                            if (image == null) return;
+                            setDialogState(() => draftImages.add(image));
+                          },
+                          icon: const Icon(
+                            Icons.photo_library_outlined,
+                            size: 28,
+                          ),
+                          label: const Text(
+                            '添加图片',
+                            style: TextStyle(fontSize: 22),
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 22,
+                              vertical: 16,
+                            ),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            '取消',
+                            style: TextStyle(fontSize: 22),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        FilledButton.icon(
+                          style: AppTheme.primaryFilledButtonStyle.copyWith(
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 18,
+                              ),
+                            ),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(
+                            _DiaryEditResult(
+                              content: controller.text,
+                              images: draftImages,
+                              locationName: locationController.text,
+                            ),
+                          ),
+                          icon: const Icon(Icons.save_outlined, size: 28),
+                          label: const Text(
+                            '保存',
+                            style: TextStyle(fontSize: 22),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    locationController.dispose();
+    if (updated == null) return null;
+    final saved = await LocalDataApi.instance.saveDiaryEntry(
+      SaveDiaryEntryInput(
+        id: entry.id,
+        entryDate: entry.entryDate,
+        content: updated.content,
+        moodKey: entry.moodKey,
+        moodLabel: entry.moodLabel,
+        moodIcon: entry.moodIcon,
+        weatherKey: entry.weatherKey,
+        weatherLabel: entry.weatherLabel,
+        weatherIcon: entry.weatherIcon,
+        lunarDate: entry.lunarDate,
+        locationName: updated.locationName,
+        images: updated.images,
+      ),
+    );
+    if (!mounted) return null;
+    setState(() {
+      _entries = _entries
+          .map((entry) => entry.id == saved.id ? saved : entry)
+          .toList();
+      if (DateHelpers.isSameDay(saved.entryDate, _currentDate) &&
+          _isTodaySelected) {
+        _textController.text = saved.content;
+        _images = List.of(saved.images);
+      }
+    });
+    return saved;
+  }
+
+  Future<bool> _confirmDeleteDiary(DiaryEntryDto entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          '删除这篇日记？',
+          style: AppTypography.subtitle.copyWith(fontSize: 32),
+        ),
+        content: Text(
+          '删除后这一天的文本和图片记录都会移除。',
+          style: AppTypography.body.copyWith(fontSize: 24),
+        ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            ),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消', style: TextStyle(fontSize: 22)),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: Icon(
+              Icons.delete_outline,
+              color: AppColors.expense,
+              size: 30,
+            ),
+            label: Text(
+              '删除',
+              style: TextStyle(color: AppColors.expense, fontSize: 22),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return false;
+    await LocalDataApi.instance.deleteDiaryEntryById(entry.id);
+    if (!mounted) return true;
+    setState(() {
+      _entries = _entries.where((item) => item.id != entry.id).toList();
+      _entryDateKeys = {..._entryDateKeys};
+      if (_entries.isEmpty) {
+        _entryDateKeys.remove(_dateKey(entry.entryDate));
+      }
+      if (_isTodaySelected) {
+        _textController.clear();
+        _images = [];
+      }
+    });
+    return true;
+  }
+
+  Future<void> _openDiaryDetail(DiaryEntryDto entry) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => _DiaryDetailPage(
+          entry: entry,
+          onEdit: _openEditDiaryDialog,
+          onDelete: _confirmDeleteDiary,
+        ),
+      ),
+    );
+  }
+
   // Placeholder builders for the 3 pages in PageView
   Widget _buildDayPage(DateTime date) {
-    final key = _dateKey(date);
-    final data = _cache[key];
-    final isCurrent = DateHelpers.isSameDay(date, _currentDate);
+    final isToday = DateHelpers.isToday(date);
 
     return _DiaryContent(
       date: date,
-      content: isCurrent ? _textController.text : (data?.content ?? ''),
-      mood: isCurrent ? _mood : (data?.mood ?? '😊'),
-      moodLabel: isCurrent ? _moodLabel : (data?.moodLabel ?? '开心'),
-      weather: isCurrent ? _weather : (data?.weather ?? 'sunny'),
-      weatherLabel: isCurrent ? _weatherLabel : (data?.weatherLabel ?? '晴'),
-      images: isCurrent ? _images : (data?.images ?? []),
-      savedTime: isCurrent ? _savedTime : null,
-      isCurrent: isCurrent,
-      textController: isCurrent ? _textController : null,
-      onTextChanged: isCurrent ? () => _scheduleAutoSave() : null,
-      onMoodTap: isCurrent ? _showMoodPicker : null,
-      onWeatherTap: isCurrent ? _showWeatherPicker : null,
-      onAddImage: isCurrent ? _addImage : null,
-      onRemoveImage: isCurrent
+      entries: _entries,
+      loading: _loadingDiary,
+      draftImages: _images,
+      draftLocationName: _draftLocationName,
+      mood: _mood,
+      moodLabel: _moodLabel,
+      weather: _weather,
+      weatherLabel: _weatherLabel,
+      isToday: isToday,
+      textController: isToday ? _textController : null,
+      onMoodTap: isToday ? _showMoodPicker : null,
+      onWeatherTap: isToday ? _showWeatherPicker : null,
+      onAddImage: isToday ? _addImage : null,
+      onLocationTap: isToday ? _openLocationEditor : null,
+      onSave: isToday ? _saveTodayDiary : null,
+      onOpenEntry: _openDiaryDetail,
+      onRemoveImage: isToday
           ? (int i) {
               setState(() {
                 _images.removeAt(i);
@@ -271,16 +595,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
                 date: _currentDate,
                 onTap: _showCalendarPicker,
               ),
-              if (_savedTime != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '已保存 $_savedTime',
-                  style: AppTypography.caption.copyWith(
-                    fontSize: 13,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ],
             ],
           ),
           const Spacer(),
@@ -316,7 +630,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
                             _mood = m[0];
                             _moodLabel = m[1];
                           });
-                          _saveCurrent();
                           Navigator.pop(ctx);
                         },
                         child: Container(
@@ -371,7 +684,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
                             _weather = w[0];
                             _weatherLabel = w[2];
                           });
-                          _saveCurrent();
                           Navigator.pop(ctx);
                         },
                         child: Container(
@@ -401,11 +713,167 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
     );
   }
 
-  void _addImage() {
-    // TODO: image_picker integration
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('图片功能即将接入系统相册')));
+  Future<String?> _pickOneImage() async {
+    final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+    return image?.path;
+  }
+
+  Future<void> _addImage() async {
+    final image = await _pickOneImage();
+    if (image == null || !mounted) return;
+    setState(() => _images.add(image));
+  }
+
+  Future<void> _openLocationEditor() async {
+    final controller = TextEditingController(text: _draftLocationName ?? '');
+    var locating = false;
+    final value = await showDialog<String>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: AppColors.card,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '记录位置',
+                  style: AppTypography.subtitle.copyWith(fontSize: 32),
+                ),
+                const SizedBox(height: 22),
+                TextField(
+                  controller: controller,
+                  style: AppTypography.body.copyWith(fontSize: 24),
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(
+                      Icons.place_outlined,
+                      color: AppColors.navSelected,
+                      size: 30,
+                    ),
+                    hintText: '国家 / 城市 / 区县 / 街道',
+                    hintStyle: TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          foregroundColor: AppColors.navSelected,
+                          side: BorderSide(color: AppColors.divider),
+                        ),
+                        onPressed: locating
+                            ? null
+                            : () async {
+                                setDialogState(() => locating = true);
+                                final location =
+                                    await _resolveCurrentLocation();
+                                setDialogState(() {
+                                  locating = false;
+                                  if (location != null) {
+                                    controller.text = location;
+                                  }
+                                });
+                              },
+                        icon: Icon(
+                          locating
+                              ? Icons.hourglass_empty_rounded
+                              : Icons.my_location_outlined,
+                          size: 28,
+                        ),
+                        label: Text(
+                          locating ? '定位中' : '获取定位',
+                          style: const TextStyle(fontSize: 22),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    FilledButton.icon(
+                      style: AppTheme.primaryFilledButtonStyle.copyWith(
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 18,
+                          ),
+                        ),
+                      ),
+                      onPressed: () =>
+                          Navigator.of(context).pop(controller.text.trim()),
+                      icon: const Icon(Icons.check_rounded, size: 28),
+                      label: const Text('确定', style: TextStyle(fontSize: 22)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (value == null || !mounted) return;
+    setState(() => _draftLocationName = value.isEmpty ? null : value);
+  }
+
+  Future<String?> _resolveCurrentLocation() async {
+    try {
+      var permission = await geolocator.Geolocator.checkPermission();
+      if (permission == geolocator.LocationPermission.denied) {
+        permission = await geolocator.Geolocator.requestPermission();
+      }
+      if (permission == geolocator.LocationPermission.denied ||
+          permission == geolocator.LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('定位权限未开启')));
+        }
+        return null;
+      }
+
+      final position = await geolocator.Geolocator.getCurrentPosition(
+        locationSettings: const geolocator.LocationSettings(
+          accuracy: geolocator.LocationAccuracy.high,
+        ),
+      );
+      final placemarks = await geocoding.Geocoding().placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (placemarks.isEmpty) {
+        return '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+      }
+      final mark = placemarks.first;
+      final parts = <String?>[
+        mark.country,
+        mark.administrativeArea,
+        mark.locality,
+        mark.subLocality,
+      ];
+      return parts
+          .whereType<String>()
+          .where((part) => part.trim().isNotEmpty)
+          .join(' · ');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('定位失败，请手动填写位置')));
+      }
+      return null;
+    }
   }
 
   static const _defaultMoods = [
@@ -433,47 +901,58 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
 /// 单日日记内容
 class _DiaryContent extends StatelessWidget {
   final DateTime date;
-  final String content;
+  final List<DiaryEntryDto> entries;
+  final bool loading;
+  final List<String> draftImages;
+  final String? draftLocationName;
   final String mood;
   final String moodLabel;
   final String weather;
   final String weatherLabel;
-  final List<String> images;
-  final String? savedTime;
-  final bool isCurrent;
+  final bool isToday;
   final TextEditingController? textController;
-  final VoidCallback? onTextChanged;
   final VoidCallback? onMoodTap;
   final VoidCallback? onWeatherTap;
   final VoidCallback? onAddImage;
+  final VoidCallback? onLocationTap;
+  final VoidCallback? onSave;
+  final ValueChanged<DiaryEntryDto>? onOpenEntry;
   final ValueChanged<int>? onRemoveImage;
 
   const _DiaryContent({
     required this.date,
-    required this.content,
+    required this.entries,
+    required this.loading,
+    required this.draftImages,
+    this.draftLocationName,
     required this.mood,
     required this.moodLabel,
     required this.weather,
     required this.weatherLabel,
-    required this.images,
-    this.savedTime,
-    required this.isCurrent,
+    required this.isToday,
     this.textController,
-    this.onTextChanged,
     this.onMoodTap,
     this.onWeatherTap,
     this.onAddImage,
+    this.onLocationTap,
+    this.onSave,
+    this.onOpenEntry,
     this.onRemoveImage,
   });
 
   @override
   Widget build(BuildContext context) {
+    final latestEntry = entries.isEmpty ? null : entries.first;
+    final shownMood = latestEntry?.moodIcon ?? mood;
+    final shownMoodLabel = latestEntry?.moodLabel ?? moodLabel;
+    final shownWeather = latestEntry?.weatherKey ?? weather;
+    final shownWeatherLabel = latestEntry?.weatherLabel ?? weatherLabel;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Column(
         children: [
-          // 主卡片：日期作为页面内容的第一视觉层级
           Container(
             width: double.infinity,
             margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -486,7 +965,6 @@ class _DiaryContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 头部：大日期 + 心情/天气
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -516,15 +994,15 @@ class _DiaryContent extends StatelessWidget {
                     Row(
                       children: [
                         _IconBubble(
-                          label: mood,
-                          tooltip: moodLabel,
+                          label: shownMood,
+                          tooltip: shownMoodLabel,
                           background: AppColors.tagWarm,
                           onTap: onMoodTap,
                         ),
                         const SizedBox(width: 18),
                         _IconBubble(
-                          label: _weatherGlyph(weather, weatherLabel),
-                          tooltip: weatherLabel,
+                          label: _weatherGlyph(shownWeather, shownWeatherLabel),
+                          tooltip: shownWeatherLabel,
                           background: AppColors.tagBlue,
                           onTap: onWeatherTap,
                         ),
@@ -537,169 +1015,995 @@ class _DiaryContent extends StatelessWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 24),
 
-                // "今日想说" 标题
-                Row(
-                  children: [
-                    const _PenSvgIcon(),
-                    const SizedBox(width: 9),
-                    Text(
-                      '今日想说',
-                      style: AppTypography.subtitle.copyWith(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 34),
-
-                // 编辑区
-                if (isCurrent && textController != null)
-                  TextField(
-                    controller: textController,
-                    maxLines: null,
-                    minLines: 7,
-                    style: AppTypography.body.copyWith(fontSize: 21),
-                    onChanged: (_) => onTextChanged?.call(),
-                    decoration: InputDecoration(
-                      hintText: '今天发生了什么...',
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      filled: false,
-                      hintStyle: TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 21,
+                if (loading)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 52),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.navSelected,
                       ),
                     ),
                   )
+                else if (isToday)
+                  _TodayDiaryComposer(
+                    controller: textController!,
+                    images: draftImages,
+                    locationName: draftLocationName,
+                    onAddImage: onAddImage,
+                    onLocationTap: onLocationTap,
+                    onSave: onSave,
+                    onRemoveImage: onRemoveImage,
+                  )
                 else
-                  Text(
-                    content.isEmpty ? '空白日记' : content,
-                    style: content.isEmpty
-                        ? AppTypography.body.copyWith(
-                            color: AppColors.textHint,
-                            fontSize: 21,
-                          )
-                        : AppTypography.body.copyWith(fontSize: 21),
-                  ),
-
-                // 图片区
-                if (images.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: images.asMap().entries.map((e) {
-                      return Stack(
-                        children: [
-                          Container(
-                            width: (MediaQuery.of(context).size.width - 80) / 3,
-                            height:
-                                (MediaQuery.of(context).size.width - 80) / 3,
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: AppRadius.md,
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.image,
-                                color: AppColors.textHint,
-                                size: 32,
-                              ),
-                            ),
-                          ),
-                          if (isCurrent)
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: GestureDetector(
-                                onTap: () => onRemoveImage?.call(e.key),
-                                child: Container(
-                                  width: 22,
-                                  height: 22,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.text.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ],
+                  _HistoryDiaryBody(entries: entries, onOpen: onOpenEntry),
               ],
             ),
           ),
-
-          // 添加图片按钮
-          if (isCurrent)
-            Padding(
-              padding: const EdgeInsets.only(top: 20, bottom: 46),
-              child: GestureDetector(
-                onTap: onAddImage,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 22),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: AppRadius.md,
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.photo_library_outlined,
-                        size: 28,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '添加图片',
-                        style: AppTypography.body.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ],
-                  ),
+          if (!loading && isToday && entries.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            ...entries.map(
+              (entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _SavedDiaryCard(
+                  entry: entry,
+                  onOpen: () => onOpenEntry?.call(entry),
                 ),
               ),
             ),
+          ],
+          const SizedBox(height: 46),
         ],
       ),
     );
   }
 }
 
-class _DayData {
-  final String content;
-  final String mood;
-  final String moodLabel;
-  final String weather;
-  final String weatherLabel;
+class _TodayDiaryComposer extends StatelessWidget {
+  final TextEditingController controller;
   final List<String> images;
-  _DayData({
-    required this.content,
-    required this.mood,
-    required this.moodLabel,
-    required this.weather,
-    required this.weatherLabel,
+  final String? locationName;
+  final VoidCallback? onAddImage;
+  final VoidCallback? onLocationTap;
+  final VoidCallback? onSave;
+  final ValueChanged<int>? onRemoveImage;
+
+  const _TodayDiaryComposer({
+    required this.controller,
     required this.images,
+    this.locationName,
+    this.onAddImage,
+    this.onLocationTap,
+    this.onSave,
+    this.onRemoveImage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _PenSvgIcon(),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                '今日想说',
+                style: AppTypography.subtitle.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            _LocationIconButton(onTap: onLocationTap),
+          ],
+        ),
+        const SizedBox(height: 34),
+        TextField(
+          controller: controller,
+          maxLines: null,
+          minLines: 7,
+          style: AppTypography.body.copyWith(fontSize: 21),
+          decoration: InputDecoration(
+            hintText: '今天发生了什么...',
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            filled: false,
+            hintStyle: TextStyle(color: AppColors.textHint, fontSize: 21),
+          ),
+        ),
+        _ImagePreviewWrap(
+          images: images,
+          editable: true,
+          onRemove: onRemoveImage,
+        ),
+        if (locationName != null && locationName!.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _LocationRow(locationName: locationName!),
+        ],
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: _DiaryActionPill(
+                label: '添加图片',
+                icon: Icons.photo_library_outlined,
+                foreground: AppColors.textSecondary,
+                background: AppColors.card,
+                borderColor: AppColors.divider,
+                onTap: onAddImage,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _DiaryActionPill(
+                label: '保存',
+                icon: Icons.save_outlined,
+                foreground: AppColors.white,
+                background: AppColors.navSelected,
+                borderColor: Colors.transparent,
+                onTap: onSave,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HistoryDiaryBody extends StatelessWidget {
+  final List<DiaryEntryDto> entries;
+  final ValueChanged<DiaryEntryDto>? onOpen;
+
+  const _HistoryDiaryBody({required this.entries, this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 46),
+        child: Center(
+          child: Text(
+            '这一天还没有日记',
+            style: AppTypography.body.copyWith(
+              color: AppColors.textHint,
+              fontSize: 21,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: entries
+          .map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _SavedDiaryCard(
+                entry: entry,
+                onOpen: () => onOpen?.call(entry),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _SavedDiaryCard extends StatelessWidget {
+  final DiaryEntryDto entry;
+  final VoidCallback? onOpen;
+
+  const _SavedDiaryCard({required this.entry, this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onOpen,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+        decoration: BoxDecoration(
+          color: AppColors.card.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: AppShadows.card,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DiaryBodyText(entry.content),
+            _ImagePreviewWrap(images: entry.images),
+            if ((entry.locationName ?? '').isNotEmpty) ...[
+              const SizedBox(height: 18),
+              _LocationRow(locationName: entry.locationName!),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiaryDetailPage extends StatefulWidget {
+  final DiaryEntryDto entry;
+  final Future<DiaryEntryDto?> Function(DiaryEntryDto entry) onEdit;
+  final Future<bool> Function(DiaryEntryDto entry) onDelete;
+
+  const _DiaryDetailPage({
+    required this.entry,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  State<_DiaryDetailPage> createState() => _DiaryDetailPageState();
+}
+
+class _DiaryDetailPageState extends State<_DiaryDetailPage> {
+  late DiaryEntryDto _entry;
+
+  @override
+  void initState() {
+    super.initState();
+    _entry = widget.entry;
+  }
+
+  Future<void> _edit() async {
+    final saved = await widget.onEdit(_entry);
+    if (saved == null || !mounted) return;
+    setState(() => _entry = saved);
+  }
+
+  Future<void> _delete() async {
+    final deleted = await widget.onDelete(_entry);
+    if (deleted && mounted) Navigator.of(context).pop();
+  }
+
+  void _openImageViewer(int index) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            _ImageViewerPage(images: _entry.images, initialIndex: index),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, themeVersion, child) {
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          body: Stack(
+            children: [
+              const Positioned.fill(child: _PaperBackdrop()),
+              SafeArea(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+                      child: Row(
+                        children: [
+                          _PlainIconButton(
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            color: AppColors.text,
+                            onTap: () => Navigator.of(context).pop(),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '日记详情',
+                            style: AppTypography.title.copyWith(fontSize: 34),
+                          ),
+                          const Spacer(),
+                          _PlainIconButton(
+                            icon: Icons.edit_outlined,
+                            color: AppColors.navSelected,
+                            onTap: _edit,
+                          ),
+                          const SizedBox(width: 18),
+                          _PlainIconButton(
+                            icon: Icons.delete_outline,
+                            color: AppColors.expense,
+                            onTap: _delete,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 46),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(26, 28, 26, 30),
+                          decoration: BoxDecoration(
+                            color: AppColors.card.withValues(alpha: 0.96),
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: AppShadows.card,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${_entry.entryDate.month} / ${_entry.entryDate.day}',
+                                          style: AppTypography.date42.copyWith(
+                                            fontSize: 58,
+                                            fontWeight: FontWeight.w300,
+                                            height: 1.05,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          _formatDiaryCardSubtitle(
+                                            _entry.entryDate,
+                                          ),
+                                          style: AppTypography.caption.copyWith(
+                                            fontSize: 20,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  _IconBubble(
+                                    label: _entry.moodIcon,
+                                    tooltip: _entry.moodLabel,
+                                    background: AppColors.tagWarm,
+                                  ),
+                                  const SizedBox(width: 18),
+                                  _IconBubble(
+                                    label: _weatherGlyph(
+                                      _entry.weatherKey,
+                                      _entry.weatherLabel,
+                                    ),
+                                    tooltip: _entry.weatherLabel,
+                                    background: AppColors.tagBlue,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 28),
+                              const Divider(height: 1),
+                              const SizedBox(height: 24),
+                              const _DiaryMarkerIcon(),
+                              const SizedBox(height: 22),
+                              _DiaryBodyText(_entry.content),
+                              _ImagePreviewWrap(
+                                images: _entry.images,
+                                onImageTap: _openImageViewer,
+                              ),
+                              if ((_entry.locationName ?? '').isNotEmpty) ...[
+                                const SizedBox(height: 18),
+                                _LocationRow(
+                                  locationName: _entry.locationName!,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PlainIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _PlainIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: Icon(icon, color: color, size: 34),
+      ),
+    );
+  }
+}
+
+class _ImageViewerPage extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const _ImageViewerPage({required this.images, required this.initialIndex});
+
+  @override
+  State<_ImageViewerPage> createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<_ImageViewerPage> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _controller,
+              itemCount: widget.images.length,
+              onPageChanged: (index) => setState(() => _index = index),
+              itemBuilder: (context, index) {
+                return InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: Center(
+                    child: _DiaryImagePreview(
+                      path: widget.images[index],
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.38),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 30),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 22,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.38),
+                    borderRadius: AppRadius.capsule,
+                  ),
+                  child: Text(
+                    '${_index + 1} / ${widget.images.length}',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiaryMarkerIcon extends StatelessWidget {
+  const _DiaryMarkerIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Icon(
+      Icons.menu_book_outlined,
+      color: Color(0xFF3D2C1E),
+      size: 38,
+    );
+  }
+}
+
+class _LocationIconButton extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _LocationIconButton({this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '添加定位',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: AppColors.navSelected.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.my_location_outlined,
+            color: AppColors.navSelected,
+            size: 30,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationRow extends StatelessWidget {
+  final String locationName;
+
+  const _LocationRow({required this.locationName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.place_outlined, color: AppColors.navSelected, size: 26),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _formatLocationLabel(locationName),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 18,
+              height: 1.45,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatLocationLabel(String value) {
+  final trimmed = value.trim();
+  if (trimmed.contains(',')) return trimmed;
+  return trimmed
+      .split(RegExp(r'[\s·]+'))
+      .where((part) => part.trim().isNotEmpty)
+      .join(' · ');
+}
+
+class _DiaryActionPill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color foreground;
+  final Color background;
+  final Color borderColor;
+  final VoidCallback? onTap;
+
+  const _DiaryActionPill({
+    required this.label,
+    required this.icon,
+    required this.foreground,
+    required this.background,
+    required this.borderColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 66,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: AppRadius.md,
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 26, color: foreground),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: AppTypography.body.copyWith(
+                color: foreground,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiaryBodyText extends StatelessWidget {
+  final String content;
+
+  const _DiaryBodyText(this.content);
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = content.trim().isEmpty;
+    return Text(
+      empty ? '这一天只留下了图片。' : content,
+      style: AppTypography.body.copyWith(
+        color: empty ? AppColors.textHint : AppColors.text,
+        fontSize: 21,
+        height: 1.72,
+      ),
+    );
+  }
+}
+
+class _ImagePreviewWrap extends StatefulWidget {
+  final List<String> images;
+  final bool editable;
+  final ValueChanged<int>? onRemove;
+  final ValueChanged<int>? onImageTap;
+
+  const _ImagePreviewWrap({
+    required this.images,
+    this.editable = false,
+    this.onRemove,
+    this.onImageTap,
+  });
+
+  @override
+  State<_ImagePreviewWrap> createState() => _ImagePreviewWrapState();
+}
+
+class _ImagePreviewWrapState extends State<_ImagePreviewWrap> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _ImagePreviewWrap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.images.length < 2 ||
+        widget.images.length != oldWidget.images.length) {
+      _expanded = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.images.isEmpty) return const SizedBox.shrink();
+
+    final canFold = widget.images.length >= 2;
+    final shouldFold = canFold && !_expanded;
+    if (shouldFold) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 18),
+        child: _buildFoldedImageStack(context),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: widget.images
+                .asMap()
+                .entries
+                .map(_buildImageTile)
+                .toList(),
+          ),
+          if (canFold) ...[
+            const SizedBox(height: 12),
+            _CompactStackToggle(
+              label: '收起',
+              icon: Icons.unfold_less_rounded,
+              onTap: () => setState(() => _expanded = false),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageTile(MapEntry<int, String> e) {
+    final tileSize = _tileSize(context);
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: AppRadius.md,
+          child: GestureDetector(
+            onTap: () => widget.onImageTap?.call(e.key),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: tileSize,
+              height: tileSize,
+              color: AppColors.surface,
+              child: _DiaryImagePreview(path: e.value),
+            ),
+          ),
+        ),
+        if (widget.editable)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () => widget.onRemove?.call(e.key),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.text.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.close, size: 21, color: Colors.white),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFoldedImageStack(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileSize = (constraints.maxWidth - 92)
+            .clamp(130.0, _tileSize(context))
+            .toDouble();
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: tileSize + 46,
+              height: tileSize + 28,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  if (widget.images.length > 2)
+                    _StackedImageCard(
+                      path: widget.images[2],
+                      size: tileSize,
+                      left: 32,
+                      top: 0,
+                      opacity: 0.42,
+                      rotation: 0.06,
+                      onTap: () => widget.onImageTap?.call(2),
+                    ),
+                  _StackedImageCard(
+                    path: widget.images[1],
+                    size: tileSize,
+                    left: 16,
+                    top: 13,
+                    opacity: 0.68,
+                    rotation: -0.035,
+                    onTap: () => widget.onImageTap?.call(1),
+                  ),
+                  _StackedImageCard(
+                    path: widget.images[0],
+                    size: tileSize,
+                    left: 0,
+                    top: 26,
+                    opacity: 1,
+                    rotation: 0,
+                    onTap: () => widget.onImageTap?.call(0),
+                  ),
+                  Positioned(
+                    left: 12,
+                    top: 38,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.text.withValues(alpha: 0.52),
+                        borderRadius: AppRadius.capsule,
+                      ),
+                      child: Text(
+                        '${widget.images.length} 张',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _CompactStackToggle(
+              label: '展开 ${widget.images.length}',
+              icon: Icons.unfold_more_rounded,
+              onTap: () => setState(() => _expanded = true),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  double _tileSize(BuildContext context) {
+    return (MediaQuery.of(context).size.width - 96) / 3;
+  }
+}
+
+class _CompactStackToggle extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CompactStackToggle({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: AppColors.navSelected.withValues(alpha: 0.1),
+          borderRadius: AppRadius.capsule,
+          border: Border.all(
+            color: AppColors.navSelected.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.navSelected, size: 22),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: AppTypography.caption.copyWith(
+                color: AppColors.navSelected,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StackedImageCard extends StatelessWidget {
+  final String path;
+  final double size;
+  final double left;
+  final double top;
+  final double opacity;
+  final double rotation;
+  final VoidCallback? onTap;
+
+  const _StackedImageCard({
+    required this.path,
+    required this.size,
+    required this.left,
+    required this.top,
+    required this.opacity,
+    required this.rotation,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: left,
+      top: top,
+      child: Transform.rotate(
+        angle: rotation,
+        child: Opacity(
+          opacity: opacity,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: AppRadius.md,
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.8),
+                ),
+                boxShadow: AppShadows.card,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _DiaryImagePreview(path: path),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DiaryImagePreview extends StatelessWidget {
+  final String path;
+  final BoxFit fit;
+
+  const _DiaryImagePreview({required this.path, this.fit = BoxFit.cover});
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.startsWith('http') || path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => _imageFallback(),
+      );
+    }
+    return _imageFallback();
+  }
+
+  Widget _imageFallback() {
+    return Center(
+      child: Icon(Icons.image_outlined, color: AppColors.textHint, size: 34),
+    );
+  }
+}
+
+class _DiaryEditResult {
+  final String content;
+  final List<String> images;
+  final String? locationName;
+
+  const _DiaryEditResult({
+    required this.content,
+    required this.images,
+    this.locationName,
   });
 }
 
@@ -779,8 +2083,12 @@ class _PenSvgIconPainter extends CustomPainter {
 
 class _CalendarDialog extends StatefulWidget {
   final DateTime selectedDate;
+  final Set<String> diaryDateKeys;
 
-  const _CalendarDialog({required this.selectedDate});
+  const _CalendarDialog({
+    required this.selectedDate,
+    required this.diaryDateKeys,
+  });
 
   @override
   State<_CalendarDialog> createState() => _CalendarDialogState();
@@ -884,6 +2192,7 @@ class _CalendarDialogState extends State<_CalendarDialog> {
                       ),
                       visibleMonth: _visibleMonth,
                       selectedDate: widget.selectedDate,
+                      diaryDateKeys: widget.diaryDateKeys,
                       onDateSelected: (date) => Navigator.of(context).pop(date),
                     )
                   : _YearCalendar(
@@ -1111,12 +2420,14 @@ class _CalendarTab extends StatelessWidget {
 class _MonthCalendar extends StatelessWidget {
   final DateTime visibleMonth;
   final DateTime selectedDate;
+  final Set<String> diaryDateKeys;
   final ValueChanged<DateTime> onDateSelected;
 
   const _MonthCalendar({
     super.key,
     required this.visibleMonth,
     required this.selectedDate,
+    required this.diaryDateKeys,
     required this.onDateSelected,
   });
 
@@ -1173,6 +2484,9 @@ class _MonthCalendar extends StatelessWidget {
               date: date,
               selected: selected,
               today: today,
+              hasDiary: diaryDateKeys.contains(
+                '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+              ),
               onTap: () => onDateSelected(date),
             );
           },
@@ -1186,12 +2500,14 @@ class _DateCell extends StatelessWidget {
   final DateTime date;
   final bool selected;
   final bool today;
+  final bool hasDiary;
   final VoidCallback onTap;
 
   const _DateCell({
     required this.date,
     required this.selected,
     required this.today,
+    required this.hasDiary,
     required this.onTap,
   });
 
@@ -1237,6 +2553,17 @@ class _DateCell extends StatelessWidget {
                     color: selected
                         ? AppColors.white.withValues(alpha: 0.78)
                         : AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: hasDiary
+                        ? (selected ? AppColors.white : AppColors.navSelected)
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
                   ),
                 ),
               ],

@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radius.dart';
@@ -1321,24 +1323,9 @@ class _BillDetailSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                height: 126,
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.divider),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  record.receiptCount == 0
-                      ? '暂无图片凭证'
-                      : '已上传 ${record.receiptCount} 张图片凭证',
-                  style: AppTypography.caption.copyWith(
-                    color: themeColor.withValues(alpha: 0.64),
-                    fontSize: 18,
-                  ),
-                ),
+              _ReceiptAttachmentPanel(
+                imagePaths: record.receiptImagePaths,
+                receiptCount: record.receiptCount,
               ),
             ],
           ),
@@ -1346,6 +1333,178 @@ class _BillDetailSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ReceiptAttachmentPanel extends StatelessWidget {
+  final List<String> imagePaths;
+  final int receiptCount;
+
+  const _ReceiptAttachmentPanel({
+    required this.imagePaths,
+    required this.receiptCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final themeColor = AppColors.navSelected;
+    if (imagePaths.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: 126,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.divider),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          receiptCount == 0 ? '暂无图片凭证' : '图片凭证加载失败',
+          style: AppTypography.caption.copyWith(
+            color: themeColor.withValues(alpha: 0.64),
+            fontSize: 18,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: imagePaths.asMap().entries.map((entry) {
+          final size = (MediaQuery.of(context).size.width - 96) / 3;
+          return GestureDetector(
+            onTap: () =>
+                _showReceiptImageViewer(context, imagePaths, entry.key),
+            child: ClipRRect(
+              borderRadius: AppRadius.sm,
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: _ReceiptAttachmentImage(path: entry.value),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ReceiptAttachmentImage extends StatelessWidget {
+  final String path;
+
+  const _ReceiptAttachmentImage({required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.startsWith('http') || path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallback(),
+      );
+    }
+
+    return FutureBuilder<Uint8List>(
+      future: XFile(path).readAsBytes(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return Image.memory(
+            snapshot.data!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _fallback(),
+          );
+        }
+        if (snapshot.hasError) return _fallback();
+        return Container(
+          color: AppColors.card,
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.navSelected,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _fallback() {
+    return Container(
+      color: AppColors.card,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.image_not_supported_outlined,
+        color: AppColors.textHint,
+        size: 30,
+      ),
+    );
+  }
+}
+
+void _showReceiptImageViewer(
+  BuildContext context,
+  List<String> imagePaths,
+  int initialIndex,
+) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.82),
+    builder: (context) {
+      final controller = PageController(initialPage: initialIndex);
+      return Dialog.fullscreen(
+        backgroundColor: Colors.transparent,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: controller,
+                itemCount: imagePaths.length,
+                itemBuilder: (context, index) {
+                  return InteractiveViewer(
+                    child: Center(
+                      child: _ReceiptAttachmentImage(path: imagePaths[index]),
+                    ),
+                  );
+                },
+              ),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.34),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _DetailRow extends StatelessWidget {
@@ -2123,6 +2282,7 @@ class _BillRecord {
   final double amount;
   final IconData icon;
   final int receiptCount;
+  final List<String> receiptImagePaths;
 
   const _BillRecord({
     required this.id,
@@ -2133,6 +2293,7 @@ class _BillRecord {
     required this.amount,
     required this.icon,
     this.receiptCount = 0,
+    this.receiptImagePaths = const [],
   });
 
   factory _BillRecord.fromDto(LedgerTransactionDto dto) {
@@ -2145,6 +2306,7 @@ class _BillRecord {
       amount: dto.signedAmount,
       icon: LedgerIconCatalog.icon(dto.iconCode),
       receiptCount: dto.receiptCount,
+      receiptImagePaths: dto.receiptImagePaths,
     );
   }
 

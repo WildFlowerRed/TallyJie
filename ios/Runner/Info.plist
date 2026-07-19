@@ -49,6 +49,12 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>用于在日记中记录当前所在城市和区域。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>用于拍摄并添加账单凭证。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于从相册选择日记图片和账单凭证。</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

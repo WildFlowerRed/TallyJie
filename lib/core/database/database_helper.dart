@@ -51,6 +51,10 @@ class DatabaseHelper {
       await _createMonthlyBudgetsTable(db);
       await _createIndexes(db);
     }
+    if (oldVersion < 4) {
+      await _migrateDiaryEntriesToMultiEntry(db);
+      await _createIndexes(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -69,50 +73,9 @@ class DatabaseHelper {
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS diary_entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entry_date TEXT NOT NULL UNIQUE,
-        title TEXT DEFAULT '',
-        content TEXT DEFAULT '',
-        markdown_content TEXT DEFAULT '',
-        mood_key TEXT,
-        mood_label TEXT,
-        mood_icon TEXT,
-        weather_key TEXT,
-        weather_label TEXT,
-        weather_icon TEXT,
-        lunar_date TEXT,
-        location_name TEXT,
-        is_favorite INTEGER DEFAULT 0,
-        server_id TEXT UNIQUE,
-        sync_status TEXT DEFAULT 'local',
-        synced_at TEXT,
-        revision INTEGER DEFAULT 0,
-        deleted_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    ''');
+    await _createDiaryEntriesTable(db);
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS diary_attachments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        diary_id INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        file_path TEXT NOT NULL,
-        file_name TEXT,
-        file_size INTEGER DEFAULT 0,
-        sort_order INTEGER DEFAULT 0,
-        server_id TEXT UNIQUE,
-        sync_status TEXT DEFAULT 'local',
-        synced_at TEXT,
-        revision INTEGER DEFAULT 0,
-        deleted_at TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (diary_id) REFERENCES diary_entries(id) ON DELETE CASCADE
-      )
-    ''');
+    await _createDiaryAttachmentsTable(db);
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS daily_tasks (
@@ -295,6 +258,127 @@ class DatabaseHelper {
       'CREATE INDEX IF NOT EXISTS idx_monthly_budget_month '
       'ON monthly_budgets(budget_month)',
     );
+  }
+
+  Future<void> _createDiaryEntriesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS diary_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date TEXT NOT NULL,
+        title TEXT DEFAULT '',
+        content TEXT DEFAULT '',
+        markdown_content TEXT DEFAULT '',
+        mood_key TEXT,
+        mood_label TEXT,
+        mood_icon TEXT,
+        weather_key TEXT,
+        weather_label TEXT,
+        weather_icon TEXT,
+        lunar_date TEXT,
+        location_name TEXT,
+        is_favorite INTEGER DEFAULT 0,
+        server_id TEXT UNIQUE,
+        sync_status TEXT DEFAULT 'local',
+        synced_at TEXT,
+        revision INTEGER DEFAULT 0,
+        deleted_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createDiaryAttachmentsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS diary_attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        diary_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        file_name TEXT,
+        file_size INTEGER DEFAULT 0,
+        sort_order INTEGER DEFAULT 0,
+        server_id TEXT UNIQUE,
+        sync_status TEXT DEFAULT 'local',
+        synced_at TEXT,
+        revision INTEGER DEFAULT 0,
+        deleted_at TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (diary_id) REFERENCES diary_entries(id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  Future<void> _migrateDiaryEntriesToMultiEntry(Database db) async {
+    if (!await _tableExists(db, 'diary_entries')) {
+      await _createDiaryEntriesTable(db);
+      return;
+    }
+
+    final info = await db.rawQuery("PRAGMA index_list('diary_entries')");
+    final hasUniqueEntryDate = info.any((row) => row['unique'] == 1);
+    if (!hasUniqueEntryDate) return;
+
+    final now = DateTime.now().toIso8601String();
+    await db.execute(
+      'ALTER TABLE diary_entries RENAME TO diary_entries_v3_backup',
+    );
+    await _createDiaryEntriesTable(db);
+    final rows = await db.query('diary_entries_v3_backup');
+    final idMap = <int, int>{};
+    for (final row in rows) {
+      final oldId = row['id'] as int;
+      final newId = await db.insert('diary_entries', {
+        'entry_date': row['entry_date'],
+        'title': row['title'] ?? '',
+        'content': row['content'] ?? '',
+        'markdown_content': row['markdown_content'] ?? row['content'] ?? '',
+        'mood_key': row['mood_key'],
+        'mood_label': row['mood_label'],
+        'mood_icon': row['mood_icon'],
+        'weather_key': row['weather_key'],
+        'weather_label': row['weather_label'],
+        'weather_icon': row['weather_icon'],
+        'lunar_date': row['lunar_date'],
+        'location_name': row['location_name'],
+        'is_favorite': row['is_favorite'] ?? 0,
+        'server_id': row['server_id'],
+        'sync_status': row['sync_status'] ?? 'local',
+        'synced_at': row['synced_at'],
+        'revision': row['revision'] ?? 0,
+        'deleted_at': row['deleted_at'],
+        'created_at': row['created_at'] ?? now,
+        'updated_at': row['updated_at'] ?? now,
+      });
+      idMap[oldId] = newId;
+    }
+
+    if (await _tableExists(db, 'diary_attachments')) {
+      await db.execute(
+        'ALTER TABLE diary_attachments RENAME TO diary_attachments_v3_backup',
+      );
+      await _createDiaryAttachmentsTable(db);
+      final attachments = await db.query('diary_attachments_v3_backup');
+      for (final attachment in attachments) {
+        final oldDiaryId = attachment['diary_id'] as int;
+        final newDiaryId = idMap[oldDiaryId];
+        if (newDiaryId == null) continue;
+        await db.insert('diary_attachments', {
+          'diary_id': newDiaryId,
+          'type': attachment['type'],
+          'file_path': attachment['file_path'],
+          'file_name': attachment['file_name'],
+          'file_size': attachment['file_size'] ?? 0,
+          'sort_order': attachment['sort_order'] ?? 0,
+          'server_id': attachment['server_id'],
+          'sync_status': attachment['sync_status'] ?? 'local',
+          'synced_at': attachment['synced_at'],
+          'revision': attachment['revision'] ?? 0,
+          'deleted_at': attachment['deleted_at'],
+          'created_at': attachment['created_at'] ?? now,
+        });
+      }
+    }
   }
 
   Future<void> _createMonthlyBudgetsTable(Database db) async {

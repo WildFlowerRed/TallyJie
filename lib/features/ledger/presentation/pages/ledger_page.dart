@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/app_radius.dart';
@@ -20,12 +24,14 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   int? _selectedCatId;
   int? _selectedAccId;
   final TextEditingController _noteCtrl = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
   DateTime _selectedTime = DateTime.now();
   bool _isKeypadOpen = false;
   bool _loadingOptions = true;
   List<Map<String, dynamic>> _expenseCats = [];
   List<Map<String, dynamic>> _incomeCats = [];
   List<Map<String, dynamic>> _accounts = [];
+  List<_ReceiptImageData> _receiptImages = [];
 
   List<Map<String, dynamic>> get _cats =>
       _isExpense ? _expenseCats : _incomeCats;
@@ -175,6 +181,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
           accountId: _selectedAccId!,
           note: _noteCtrl.text,
           transactionTime: _selectedTime,
+          receiptImagePaths: _receiptImages.map((image) => image.path).toList(),
         ),
       );
       final overBudget = type == LedgerEntryType.expense
@@ -204,7 +211,81 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       _selectedAccId = null;
       _noteCtrl.clear();
       _selectedTime = DateTime.now();
+      _receiptImages = [];
     });
+  }
+
+  Future<void> _showReceiptPicker() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheet),
+      builder: (context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 54,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                '添加凭证',
+                style: AppTypography.subtitle.copyWith(fontSize: 26),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ReceiptSourceButton(
+                      icon: Icons.photo_library_outlined,
+                      label: '手机相册',
+                      onTap: () =>
+                          Navigator.of(context).pop(ImageSource.gallery),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _ReceiptSourceButton(
+                      icon: Icons.photo_camera_outlined,
+                      label: '拍摄照片',
+                      onTap: () =>
+                          Navigator.of(context).pop(ImageSource.camera),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null) return;
+    final image = await _imagePicker.pickImage(source: source);
+    if (image == null || !mounted) return;
+    Uint8List? previewBytes;
+    try {
+      previewBytes = await image.readAsBytes();
+    } catch (_) {
+      previewBytes = null;
+    }
+    if (!mounted) return;
+    setState(
+      () => _receiptImages = [
+        ..._receiptImages,
+        _ReceiptImageData(path: image.path, bytes: previewBytes),
+      ],
+    );
   }
 
   Future<void> _showBudgetWarningDialog(double overAmount) {
@@ -423,33 +504,26 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                   // 凭证
                   _SectionTitle(label: '消费凭证'),
                   const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 30),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: AppRadius.md,
-                      border: Border.all(color: AppColors.divider),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.add_photo_alternate_outlined,
-                          size: 30,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '添加凭证',
-                          style: AppTypography.body.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 21,
-                          ),
-                        ),
-                      ],
-                    ),
+                  _ReceiptPickerCard(
+                    images: _receiptImages,
+                    onAdd: _showReceiptPicker,
+                    onRemove: (index) {
+                      setState(() => _receiptImages.removeAt(index));
+                    },
                   ),
+                  if (_receiptImages.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '已添加 ${_receiptImages.length} 张凭证',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 17,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 40),
 
                   // 保存
@@ -486,6 +560,196 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
 }
 
 String _formatMoney(double value) => NumberFormat('#,##0.00').format(value);
+
+class _ReceiptImageData {
+  final String path;
+  final Uint8List? bytes;
+
+  const _ReceiptImageData({required this.path, required this.bytes});
+}
+
+class _ReceiptPickerCard extends StatelessWidget {
+  final List<_ReceiptImageData> images;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  const _ReceiptPickerCard({
+    required this.images,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: onAdd,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: AppRadius.md,
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 30,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '添加凭证',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 21,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (images.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: images.asMap().entries.map((entry) {
+                final size = (MediaQuery.of(context).size.width - 96) / 3;
+                return Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: AppRadius.md,
+                      child: Container(
+                        width: size,
+                        height: size,
+                        color: AppColors.card,
+                        child: _ReceiptImagePreview(image: entry.value),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => onRemove(entry.key),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.text.withValues(alpha: 0.58),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReceiptImagePreview extends StatelessWidget {
+  final _ReceiptImageData image;
+
+  const _ReceiptImagePreview({required this.image});
+
+  @override
+  Widget build(BuildContext context) {
+    if (image.bytes != null) {
+      return Image.memory(
+        image.bytes!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallback(),
+      );
+    }
+    final path = image.path;
+    if (path.startsWith('http') || path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallback(),
+      );
+    }
+    return _fallback();
+  }
+
+  Widget _fallback() {
+    return Center(
+      child: Icon(
+        Icons.receipt_long_outlined,
+        color: AppColors.textHint,
+        size: 34,
+      ),
+    );
+  }
+}
+
+class _ReceiptSourceButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ReceiptSourceButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: AppColors.navSelected.withValues(alpha: 0.1),
+          borderRadius: AppRadius.md,
+          border: Border.all(
+            color: AppColors.navSelected.withValues(alpha: 0.14),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 34, color: AppColors.navSelected),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: AppTypography.body.copyWith(
+                color: AppColors.navSelected,
+                fontSize: 21,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _AmountKeypadSheet extends StatelessWidget {
   final String amount;

@@ -69,6 +69,7 @@ class LedgerTransactionDto {
   final String source;
   final String iconCode;
   final int receiptCount;
+  final List<String> receiptImagePaths;
 
   const LedgerTransactionDto({
     required this.id,
@@ -84,6 +85,7 @@ class LedgerTransactionDto {
     required this.source,
     required this.iconCode,
     this.receiptCount = 0,
+    this.receiptImagePaths = const [],
   });
 
   double get signedAmount =>
@@ -105,6 +107,10 @@ class LedgerTransactionDto {
       source: (map['source'] as String?) ?? 'manual',
       iconCode: (map['icon_code'] as String?) ?? 'more_horiz',
       receiptCount: (map['receipt_count'] as int?) ?? 0,
+      receiptImagePaths: ((map['receipt_paths'] as String?) ?? '')
+          .split('|||')
+          .where((path) => path.trim().isNotEmpty)
+          .toList(),
     );
   }
 }
@@ -117,6 +123,7 @@ class CreateLedgerTransactionInput {
   final String note;
   final DateTime transactionTime;
   final String source;
+  final List<String> receiptImagePaths;
 
   const CreateLedgerTransactionInput({
     required this.type,
@@ -126,6 +133,7 @@ class CreateLedgerTransactionInput {
     this.note = '',
     required this.transactionTime,
     this.source = 'manual',
+    this.receiptImagePaths = const [],
   });
 }
 
@@ -165,12 +173,75 @@ class BudgetCheckResult {
   });
 }
 
+class DiaryEntryDto {
+  final int id;
+  final DateTime entryDate;
+  final String content;
+  final String moodKey;
+  final String moodLabel;
+  final String moodIcon;
+  final String weatherKey;
+  final String weatherLabel;
+  final String weatherIcon;
+  final String lunarDate;
+  final String? locationName;
+  final List<String> images;
+
+  const DiaryEntryDto({
+    required this.id,
+    required this.entryDate,
+    required this.content,
+    required this.moodKey,
+    required this.moodLabel,
+    required this.moodIcon,
+    required this.weatherKey,
+    required this.weatherLabel,
+    required this.weatherIcon,
+    required this.lunarDate,
+    this.locationName,
+    required this.images,
+  });
+
+  bool get hasBody => content.trim().isNotEmpty || images.isNotEmpty;
+}
+
+class SaveDiaryEntryInput {
+  final int? id;
+  final DateTime entryDate;
+  final String content;
+  final String moodKey;
+  final String moodLabel;
+  final String moodIcon;
+  final String weatherKey;
+  final String weatherLabel;
+  final String weatherIcon;
+  final String lunarDate;
+  final String? locationName;
+  final List<String> images;
+
+  const SaveDiaryEntryInput({
+    this.id,
+    required this.entryDate,
+    required this.content,
+    required this.moodKey,
+    required this.moodLabel,
+    required this.moodIcon,
+    required this.weatherKey,
+    required this.weatherLabel,
+    required this.weatherIcon,
+    required this.lunarDate,
+    this.locationName,
+    required this.images,
+  });
+}
+
 class LocalDataApi {
   LocalDataApi._();
 
   static final LocalDataApi instance = LocalDataApi._();
   final ValueNotifier<int> transactionsVersion = ValueNotifier<int>(0);
   final ValueNotifier<int> budgetVersion = ValueNotifier<int>(0);
+  final ValueNotifier<int> diaryVersion = ValueNotifier<int>(0);
   final _memory = _MemoryStore();
 
   Future<List<LedgerCategoryDto>> listLedgerCategories({
@@ -218,7 +289,7 @@ class LocalDataApi {
 
     final db = await DatabaseHelper().database;
     final rows = await db.rawQuery('''
-      SELECT
+        SELECT
         t.id,
         t.transaction_no,
         t.type,
@@ -229,10 +300,11 @@ class LocalDataApi {
         t.account_name,
         t.note,
         t.transaction_time,
-        t.source,
-        c.icon_code,
-        COUNT(a.id) AS receipt_count
-      FROM ledger_transactions t
+          t.source,
+          c.icon_code,
+          COUNT(a.id) AS receipt_count,
+          GROUP_CONCAT(a.file_path, '|||') AS receipt_paths
+        FROM ledger_transactions t
       LEFT JOIN ledger_categories c ON c.id = t.category_id
       LEFT JOIN transaction_attachments a
         ON a.transaction_id = t.id AND a.deleted_at IS NULL
@@ -317,6 +389,113 @@ class LocalDataApi {
     );
   }
 
+  Future<List<DateTime>> listDiaryEntryDates() async {
+    if (kIsWeb) return _memory.listDiaryEntryDates();
+
+    final db = await DatabaseHelper().database;
+    final rows = await db.query(
+      'diary_entries',
+      distinct: true,
+      columns: ['entry_date'],
+      where: 'deleted_at IS NULL',
+      orderBy: 'entry_date ASC',
+    );
+    return rows
+        .map((row) => DateTime.tryParse(row['entry_date'] as String))
+        .whereType<DateTime>()
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toList();
+  }
+
+  Future<DiaryEntryDto?> getDiaryEntry(DateTime date) async {
+    final entries = await listDiaryEntries(date);
+    return entries.isEmpty ? null : entries.first;
+  }
+
+  Future<List<DiaryEntryDto>> listDiaryEntries(DateTime date) async {
+    final entryDate = _dateKey(date);
+    if (kIsWeb) return _memory.listDiaryEntries(date);
+
+    final db = await DatabaseHelper().database;
+    final rows = await db.query(
+      'diary_entries',
+      where: 'entry_date = ? AND deleted_at IS NULL',
+      whereArgs: [entryDate],
+      orderBy: 'created_at DESC, id DESC',
+    );
+    final entries = <DiaryEntryDto>[];
+    for (final row in rows) {
+      entries.add(await _diaryDtoFromRow(db, row));
+    }
+    return entries;
+  }
+
+  Future<DiaryEntryDto> _diaryDtoFromRow(
+    Database db,
+    Map<String, Object?> row,
+  ) async {
+    final attachments = await db.query(
+      'diary_attachments',
+      where: 'diary_id = ? AND deleted_at IS NULL',
+      whereArgs: [row['id']],
+      orderBy: 'sort_order ASC, id ASC',
+    );
+    return DiaryEntryDto(
+      id: row['id'] as int,
+      entryDate: DateTime.parse(row['entry_date'] as String),
+      content: (row['content'] as String?) ?? '',
+      moodKey: (row['mood_key'] as String?) ?? 'happy',
+      moodLabel: (row['mood_label'] as String?) ?? '开心',
+      moodIcon: (row['mood_icon'] as String?) ?? '😊',
+      weatherKey: (row['weather_key'] as String?) ?? 'sunny',
+      weatherLabel: (row['weather_label'] as String?) ?? '晴',
+      weatherIcon: (row['weather_icon'] as String?) ?? '☀️',
+      lunarDate: (row['lunar_date'] as String?) ?? '',
+      locationName: row['location_name'] as String?,
+      images: attachments
+          .map((attachment) => attachment['file_path'] as String)
+          .toList(),
+    );
+  }
+
+  Future<DiaryEntryDto> saveDiaryEntry(SaveDiaryEntryInput input) async {
+    final entry = kIsWeb
+        ? await _memory.saveDiaryEntry(input)
+        : await _saveSqliteDiaryEntry(input);
+    diaryVersion.value++;
+    return entry;
+  }
+
+  Future<void> deleteDiaryEntry(DateTime date) async {
+    final entry = await getDiaryEntry(date);
+    if (entry == null) return;
+    return deleteDiaryEntryById(entry.id);
+  }
+
+  Future<void> deleteDiaryEntryById(int id) async {
+    if (kIsWeb) {
+      await _memory.deleteDiaryEntryById(id);
+      diaryVersion.value++;
+      return;
+    }
+
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'diary_entries',
+      {'deleted_at': now, 'sync_status': 'pending_delete', 'updated_at': now},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    await db.update(
+      'diary_attachments',
+      {'deleted_at': now, 'sync_status': 'pending_delete'},
+      where: 'diary_id = ?',
+      whereArgs: [id],
+    );
+    diaryVersion.value++;
+  }
+
   Future<int> _createSqliteTransaction(
     CreateLedgerTransactionInput input,
   ) async {
@@ -340,7 +519,7 @@ class LocalDataApi {
     final now = DateTime.now().toIso8601String();
     final category = categoryRows.first;
     final account = accountRows.first;
-    return db.insert('ledger_transactions', {
+    final transactionId = await db.insert('ledger_transactions', {
       'transaction_no': _buildTransactionNo(now),
       'type': input.type.name,
       'amount': input.amount.abs(),
@@ -355,15 +534,94 @@ class LocalDataApi {
       'created_at': now,
       'updated_at': now,
     });
+    for (var i = 0; i < input.receiptImagePaths.length; i++) {
+      final path = input.receiptImagePaths[i];
+      await db.insert('transaction_attachments', {
+        'transaction_id': transactionId,
+        'file_path': path,
+        'file_name': path.split(RegExp(r'[/\\]')).last,
+        'file_type': 'image',
+        'file_size': 0,
+        'sync_status': 'local',
+        'created_at': now,
+      });
+    }
+    return transactionId;
   }
 
   String _buildTransactionNo(String now) {
     return 'tx_${now.replaceAll(RegExp(r'[^0-9]'), '')}_'
         '${DateTime.now().microsecondsSinceEpoch}';
   }
+
+  Future<DiaryEntryDto> _saveSqliteDiaryEntry(SaveDiaryEntryInput input) async {
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now().toIso8601String();
+    final dateKey = _dateKey(input.entryDate);
+    late final int entryId;
+    final values = {
+      'entry_date': dateKey,
+      'content': input.content.trim(),
+      'markdown_content': input.content.trim(),
+      'mood_key': input.moodKey,
+      'mood_label': input.moodLabel,
+      'mood_icon': input.moodIcon,
+      'weather_key': input.weatherKey,
+      'weather_label': input.weatherLabel,
+      'weather_icon': input.weatherIcon,
+      'lunar_date': input.lunarDate,
+      'location_name': input.locationName?.trim(),
+      'sync_status': 'local',
+      'deleted_at': null,
+      'updated_at': now,
+    };
+    if (input.id == null) {
+      entryId = await db.insert('diary_entries', {
+        ...values,
+        'created_at': now,
+      });
+    } else {
+      entryId = input.id!;
+      await db.update(
+        'diary_entries',
+        values,
+        where: 'id = ?',
+        whereArgs: [entryId],
+      );
+      await db.delete(
+        'diary_attachments',
+        where: 'diary_id = ?',
+        whereArgs: [entryId],
+      );
+    }
+
+    for (var i = 0; i < input.images.length; i++) {
+      final path = input.images[i];
+      await db.insert('diary_attachments', {
+        'diary_id': entryId,
+        'type': 'image',
+        'file_path': path,
+        'file_name': path.split(RegExp(r'[/\\]')).last,
+        'file_size': 0,
+        'sort_order': i,
+        'sync_status': 'local',
+        'created_at': now,
+      });
+    }
+    final rows = await db.query(
+      'diary_entries',
+      where: 'id = ?',
+      whereArgs: [entryId],
+      limit: 1,
+    );
+    return _diaryDtoFromRow(db, rows.first);
+  }
 }
 
 DateTime _monthStart(DateTime date) => DateTime(date.year, date.month);
+
+String _dateKey(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 String _monthKey(DateTime date) {
   final month = _monthStart(date);
@@ -421,7 +679,9 @@ class _MemoryStore {
   final List<LedgerAccountDto> _accounts = _seedAccounts();
   final List<LedgerTransactionDto> _transactions = [];
   final Map<String, double> _budgets = {};
+  final List<DiaryEntryDto> _diaryEntries = [];
   int _nextTransactionId = 1;
+  int _nextDiaryId = 1;
 
   List<LedgerCategoryDto> listCategories(LedgerEntryType type) {
     return _categories.where((category) => category.type == type).toList();
@@ -447,6 +707,8 @@ class _MemoryStore {
         transactionTime: input.transactionTime,
         source: input.source,
         iconCode: category.iconCode,
+        receiptCount: input.receiptImagePaths.length,
+        receiptImagePaths: List.of(input.receiptImagePaths),
       ),
     );
     return id;
@@ -478,6 +740,72 @@ class _MemoryStore {
     final targetMonth = _monthStart(month);
     _budgets[_monthKey(targetMonth)] = amount.abs();
     return getBudget(targetMonth);
+  }
+
+  Future<List<DateTime>> listDiaryEntryDates() async {
+    final dateKeys =
+        _diaryEntries
+            .where((entry) => entry.hasBody)
+            .map((entry) => entry.entryDate)
+            .map(_dateKey)
+            .toSet()
+            .toList()
+          ..sort();
+    return dateKeys.map(DateTime.parse).toList();
+  }
+
+  Future<DiaryEntryDto?> getDiaryEntry(DateTime date) async {
+    final entries = await listDiaryEntries(date);
+    return entries.isEmpty ? null : entries.first;
+  }
+
+  Future<List<DiaryEntryDto>> listDiaryEntries(DateTime date) async {
+    final dateKey = _dateKey(date);
+    final entries =
+        _diaryEntries
+            .where((entry) => _dateKey(entry.entryDate) == dateKey)
+            .toList()
+          ..sort((a, b) => b.id.compareTo(a.id));
+    return entries;
+  }
+
+  Future<DiaryEntryDto> saveDiaryEntry(SaveDiaryEntryInput input) async {
+    final existingIndex = input.id == null
+        ? -1
+        : _diaryEntries.indexWhere((entry) => entry.id == input.id);
+    final entry = DiaryEntryDto(
+      id: input.id ?? _nextDiaryId++,
+      entryDate: DateTime(
+        input.entryDate.year,
+        input.entryDate.month,
+        input.entryDate.day,
+      ),
+      content: input.content.trim(),
+      moodKey: input.moodKey,
+      moodLabel: input.moodLabel,
+      moodIcon: input.moodIcon,
+      weatherKey: input.weatherKey,
+      weatherLabel: input.weatherLabel,
+      weatherIcon: input.weatherIcon,
+      lunarDate: input.lunarDate,
+      locationName: input.locationName?.trim(),
+      images: List.of(input.images),
+    );
+    if (existingIndex >= 0) {
+      _diaryEntries[existingIndex] = entry;
+    } else {
+      _diaryEntries.add(entry);
+    }
+    return entry;
+  }
+
+  Future<void> deleteDiaryEntry(DateTime date) async {
+    final dateKey = _dateKey(date);
+    _diaryEntries.removeWhere((entry) => _dateKey(entry.entryDate) == dateKey);
+  }
+
+  Future<void> deleteDiaryEntryById(int id) async {
+    _diaryEntries.removeWhere((entry) => entry.id == id);
   }
 
   static List<LedgerCategoryDto> _seedCategories() {

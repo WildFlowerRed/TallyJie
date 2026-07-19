@@ -2,7 +2,7 @@ class AppConstants {
   AppConstants._();
   static const String appName = 'TallyJie';
   static const String dbName = 'tallyjie.db';
-  static const int dbVersion = 3;
+  static const int dbVersion = 4;
 }
 
 class AppStrings {
