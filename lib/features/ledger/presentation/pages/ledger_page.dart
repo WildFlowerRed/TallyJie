@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
+import '../../../../core/services/local_data_api.dart';
 
 /// 记账账本
 class LedgerPage extends ConsumerStatefulWidget {
@@ -21,219 +22,10 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   final TextEditingController _noteCtrl = TextEditingController();
   DateTime _selectedTime = DateTime.now();
   bool _isKeypadOpen = false;
-
-  List<Map<String, dynamic>> get _expenseCats => [
-    {
-      'id': 1,
-      'icon': Icons.restaurant_outlined,
-      'color': AppColors.categoryFood,
-      'name': '餐饮',
-    },
-    {
-      'id': 2,
-      'icon': Icons.directions_car_outlined,
-      'color': AppColors.categoryTransit,
-      'name': '交通',
-    },
-    {
-      'id': 3,
-      'icon': Icons.shopping_bag_outlined,
-      'color': AppColors.categoryShopping,
-      'name': '购物',
-    },
-    {
-      'id': 4,
-      'icon': Icons.home_outlined,
-      'color': AppColors.categoryHome,
-      'name': '住房',
-    },
-    {
-      'id': 5,
-      'icon': Icons.lightbulb_outline,
-      'color': AppColors.categoryUtility,
-      'name': '水电',
-    },
-    {
-      'id': 6,
-      'icon': Icons.phone_iphone_outlined,
-      'color': AppColors.categoryDigital,
-      'name': '通讯',
-    },
-    {
-      'id': 7,
-      'icon': Icons.sports_esports_outlined,
-      'color': AppColors.categoryFun,
-      'name': '娱乐',
-    },
-    {
-      'id': 8,
-      'icon': Icons.menu_book_outlined,
-      'color': AppColors.categoryStudy,
-      'name': '学习',
-    },
-    {
-      'id': 9,
-      'icon': Icons.medical_services_outlined,
-      'color': AppColors.expense,
-      'name': '医疗',
-    },
-    {
-      'id': 10,
-      'icon': Icons.flight_takeoff_outlined,
-      'color': AppColors.categoryTransit,
-      'name': '旅行',
-    },
-    {
-      'id': 11,
-      'icon': Icons.cruelty_free_outlined,
-      'color': AppColors.categoryHome,
-      'name': '宠物',
-    },
-    {
-      'id': 12,
-      'icon': Icons.card_giftcard_outlined,
-      'color': AppColors.categoryFun,
-      'name': '礼物',
-    },
-    {
-      'id': 13,
-      'icon': Icons.spa_outlined,
-      'color': AppColors.income,
-      'name': '日用品',
-    },
-    {
-      'id': 14,
-      'icon': Icons.checkroom_outlined,
-      'color': AppColors.categoryShopping,
-      'name': '服饰',
-    },
-    {
-      'id': 15,
-      'icon': Icons.brush_outlined,
-      'color': AppColors.categoryFun,
-      'name': '美妆',
-    },
-    {
-      'id': 16,
-      'icon': Icons.directions_run_outlined,
-      'color': AppColors.categoryStudy,
-      'name': '运动',
-    },
-    {
-      'id': 17,
-      'icon': Icons.devices_outlined,
-      'color': AppColors.categoryDigital,
-      'name': '数码',
-    },
-    {
-      'id': 18,
-      'icon': Icons.more_horiz,
-      'color': AppColors.categoryOther,
-      'name': '其他',
-    },
-  ];
-
-  List<Map<String, dynamic>> get _incomeCats => [
-    {
-      'id': 101,
-      'icon': Icons.payments_outlined,
-      'color': AppColors.income,
-      'name': '工资',
-    },
-    {
-      'id': 102,
-      'icon': Icons.redeem_outlined,
-      'color': AppColors.categoryFun,
-      'name': '奖金',
-    },
-    {
-      'id': 103,
-      'icon': Icons.trending_up_outlined,
-      'color': AppColors.categoryStudy,
-      'name': '分红',
-    },
-    {
-      'id': 104,
-      'icon': Icons.work_outline,
-      'color': AppColors.categoryHome,
-      'name': '兼职',
-    },
-    {
-      'id': 105,
-      'icon': Icons.credit_card_outlined,
-      'color': AppColors.categoryTransit,
-      'name': '收款',
-    },
-    {
-      'id': 106,
-      'icon': Icons.keyboard_return_outlined,
-      'color': AppColors.categoryOther,
-      'name': '退款',
-    },
-    {
-      'id': 107,
-      'icon': Icons.card_giftcard_outlined,
-      'color': AppColors.expense,
-      'name': '红包',
-    },
-    {
-      'id': 108,
-      'icon': Icons.account_balance_outlined,
-      'color': AppColors.accent,
-      'name': '利息',
-    },
-    {
-      'id': 109,
-      'icon': Icons.insert_chart_outlined,
-      'color': AppColors.categoryDigital,
-      'name': '投资',
-    },
-    {
-      'id': 110,
-      'icon': Icons.more_horiz,
-      'color': AppColors.categoryOther,
-      'name': '其他',
-    },
-  ];
-
-  List<Map<String, dynamic>> get _accounts => [
-    {
-      'id': 1,
-      'icon': Icons.chat_bubble_outline,
-      'color': AppColors.income,
-      'name': '微信',
-    },
-    {
-      'id': 2,
-      'icon': Icons.account_balance_wallet_outlined,
-      'color': AppColors.categoryTransit,
-      'name': '支付宝',
-    },
-    {
-      'id': 3,
-      'icon': Icons.account_balance_outlined,
-      'color': AppColors.categoryHome,
-      'name': '银行卡',
-    },
-    {
-      'id': 4,
-      'icon': Icons.money_outlined,
-      'color': AppColors.categoryStudy,
-      'name': '现金',
-    },
-    {
-      'id': 5,
-      'icon': Icons.credit_card_outlined,
-      'color': AppColors.categoryFun,
-      'name': '信用卡',
-    },
-    {
-      'id': 6,
-      'icon': Icons.phone_iphone_outlined,
-      'color': AppColors.categoryDigital,
-      'name': '数字钱包',
-    },
-  ];
+  bool _loadingOptions = true;
+  List<Map<String, dynamic>> _expenseCats = [];
+  List<Map<String, dynamic>> _incomeCats = [];
+  List<Map<String, dynamic>> _accounts = [];
 
   List<Map<String, dynamic>> get _cats =>
       _isExpense ? _expenseCats : _incomeCats;
@@ -241,6 +33,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   @override
   void initState() {
     super.initState();
+    _loadOptions();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _showAmountKeypad();
     });
@@ -275,6 +68,39 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
         }
       }
     });
+  }
+
+  Future<void> _loadOptions() async {
+    final expense = await LocalDataApi.instance.listLedgerCategories(
+      type: LedgerEntryType.expense,
+    );
+    final income = await LocalDataApi.instance.listLedgerCategories(
+      type: LedgerEntryType.income,
+    );
+    final accounts = await LocalDataApi.instance.listLedgerAccounts();
+    if (!mounted) return;
+    setState(() {
+      _expenseCats = expense.map(_categoryToChip).toList();
+      _incomeCats = income.map(_categoryToChip).toList();
+      _accounts = accounts.map(_accountToChip).toList();
+      _loadingOptions = false;
+    });
+  }
+
+  Map<String, dynamic> _categoryToChip(LedgerCategoryDto category) {
+    return {
+      'id': category.id,
+      'icon': LedgerIconCatalog.icon(category.iconCode),
+      'name': category.name,
+    };
+  }
+
+  Map<String, dynamic> _accountToChip(LedgerAccountDto account) {
+    return {
+      'id': account.id,
+      'icon': LedgerIconCatalog.icon(account.iconCode),
+      'name': account.name,
+    };
   }
 
   Future<void> _showAmountKeypad() async {
@@ -318,7 +144,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_amount.isEmpty || double.tryParse(_amount) == null) {
       ScaffoldMessenger.of(
         context,
@@ -337,10 +163,28 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       ).showSnackBar(const SnackBar(content: Text('请选择账户')));
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('账单已保存')));
-    _reset();
+    try {
+      await LocalDataApi.instance.createLedgerTransaction(
+        CreateLedgerTransactionInput(
+          type: _isExpense ? LedgerEntryType.expense : LedgerEntryType.income,
+          amount: double.parse(_amount),
+          categoryId: _selectedCatId!,
+          accountId: _selectedAccId!,
+          note: _noteCtrl.text,
+          transactionTime: _selectedTime,
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('账单已保存')));
+      _reset();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存失败，请稍后重试')));
+    }
   }
 
   void _reset() {
@@ -454,25 +298,32 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // 分类
-                  _SectionTitle(label: '分类'),
-                  const SizedBox(height: 16),
-                  _ChipGrid(
-                    items: _cats,
-                    selectedId: _selectedCatId,
-                    onSelect: (id) => setState(() => _selectedCatId = id),
-                  ),
-                  const SizedBox(height: 28),
+                  if (_loadingOptions) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 36),
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    ),
+                  ] else ...[
+                    // 分类
+                    _SectionTitle(label: '分类'),
+                    const SizedBox(height: 16),
+                    _ChipGrid(
+                      items: _cats,
+                      selectedId: _selectedCatId,
+                      onSelect: (id) => setState(() => _selectedCatId = id),
+                    ),
+                    const SizedBox(height: 28),
 
-                  // 账户
-                  _SectionTitle(label: '账户'),
-                  const SizedBox(height: 16),
-                  _ChipGrid(
-                    items: _accounts,
-                    selectedId: _selectedAccId,
-                    onSelect: (id) => setState(() => _selectedAccId = id),
-                  ),
-                  const SizedBox(height: 28),
+                    // 账户
+                    _SectionTitle(label: '账户'),
+                    const SizedBox(height: 16),
+                    _ChipGrid(
+                      items: _accounts,
+                      selectedId: _selectedAccId,
+                      onSelect: (id) => setState(() => _selectedAccId = id),
+                    ),
+                    const SizedBox(height: 28),
+                  ],
 
                   // 备注
                   _SectionTitle(label: '备注'),

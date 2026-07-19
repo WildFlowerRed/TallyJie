@@ -433,7 +433,12 @@ class DatabaseHelper {
   }
 
   Future<void> _backupV1Tables(Database db) async {
-    for (final table in ['categories', 'accounts', 'transactions']) {
+    for (final table in [
+      'categories',
+      'accounts',
+      'transactions',
+      'app_settings',
+    ]) {
       await _renameTableIfExists(db, table, '${table}_v1_backup');
     }
     await _renameTableIfExists(db, 'diary_entries', 'diary_entries_v1_backup');

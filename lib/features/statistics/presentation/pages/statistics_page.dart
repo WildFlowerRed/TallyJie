@@ -7,6 +7,7 @@ import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../../../core/services/local_data_api.dart';
 import '../../../../core/utils/date_helpers.dart';
 
 Color get _primaryBlue => AppColors.accent;
@@ -91,21 +92,41 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   _ReportType _reportType = _ReportType.expense;
   String _searchQuery = '';
   late DateTime _reportMonth;
-  late final List<_BillRecord> _records;
+  List<_BillRecord> _records = [];
+  bool _loadingRecords = true;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _reportMonth = DateTime(now.year, now.month);
-    _records = _buildMockRecords(now);
+    _loadRecords();
+    LocalDataApi.instance.transactionsVersion.addListener(
+      _handleTransactionsChanged,
+    );
     StatisticsPageNavigation._mainPageRequests.addListener(_showMainPage);
   }
 
   @override
   void dispose() {
+    LocalDataApi.instance.transactionsVersion.removeListener(
+      _handleTransactionsChanged,
+    );
     StatisticsPageNavigation._mainPageRequests.removeListener(_showMainPage);
     super.dispose();
+  }
+
+  void _handleTransactionsChanged() {
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    final transactions = await LocalDataApi.instance.listTransactions();
+    if (!mounted) return;
+    setState(() {
+      _records = transactions.map(_BillRecord.fromDto).toList();
+      _loadingRecords = false;
+    });
   }
 
   void _showMainPage() {
@@ -344,7 +365,16 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (_filteredRecords.isEmpty)
+                  if (_loadingRecords)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 42),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    )
+                  else if (_filteredRecords.isEmpty)
                     const _EmptyBills()
                   else
                     ..._filteredRecords.map(
@@ -1639,6 +1669,19 @@ class _BillRecord {
     this.receiptCount = 0,
   });
 
+  factory _BillRecord.fromDto(LedgerTransactionDto dto) {
+    return _BillRecord(
+      id: dto.id.toString(),
+      category: dto.categoryName,
+      note: dto.note,
+      account: dto.accountName,
+      date: dto.transactionTime,
+      amount: dto.signedAmount,
+      icon: LedgerIconCatalog.icon(dto.iconCode),
+      receiptCount: dto.receiptCount,
+    );
+  }
+
   bool get isIncome => amount >= 0;
 }
 
@@ -1654,139 +1697,6 @@ class _CategoryStat {
     required this.icon,
     required this.color,
   });
-}
-
-List<_BillRecord> _buildMockRecords(DateTime now) {
-  DateTime at(int monthOffset, int day, int hour, int minute) {
-    final month = DateTime(now.year, now.month + monthOffset);
-    final lastDay = DateTime(month.year, month.month + 1, 0).day;
-    return DateTime(
-      month.year,
-      month.month,
-      math.min(day, lastDay),
-      hour,
-      minute,
-    );
-  }
-
-  final records = <_BillRecord>[
-    _BillRecord(
-      id: '1',
-      category: '餐饮',
-      note: '和朋友吃火锅',
-      amount: -186.00,
-      account: '微信',
-      date: DateTime(now.year, now.month, now.day, 18, 30),
-      icon: Icons.restaurant_outlined,
-      receiptCount: 2,
-    ),
-    _BillRecord(
-      id: '2',
-      category: '交通',
-      note: '打车回家',
-      amount: -32.50,
-      account: '支付宝',
-      date: DateTime(now.year, now.month, now.day, 17, 0),
-      icon: Icons.directions_car_outlined,
-    ),
-    _BillRecord(
-      id: '3',
-      category: '工资',
-      note: '7月工资',
-      amount: 7500.00,
-      account: '银行卡',
-      date: at(0, 15, 9, 0),
-      icon: Icons.payments_outlined,
-    ),
-    _BillRecord(
-      id: '4',
-      category: '购物',
-      note: '买了键盘',
-      amount: -299.00,
-      account: '支付宝',
-      date: at(0, 14, 20, 20),
-      icon: Icons.shopping_bag_outlined,
-      receiptCount: 1,
-    ),
-    _BillRecord(
-      id: '5',
-      category: '娱乐',
-      note: '电影票',
-      amount: -86.00,
-      account: '微信',
-      date: at(0, 8, 19, 40),
-      icon: Icons.sports_esports_outlined,
-    ),
-    _BillRecord(
-      id: '6',
-      category: '红包',
-      note: '朋友转账',
-      amount: 620.00,
-      account: '微信',
-      date: at(0, 6, 12, 15),
-      icon: Icons.card_giftcard_outlined,
-    ),
-    _BillRecord(
-      id: '7',
-      category: '住房',
-      note: '房租',
-      amount: -2300.00,
-      account: '银行卡',
-      date: at(0, 1, 8, 30),
-      icon: Icons.home_outlined,
-    ),
-    _BillRecord(
-      id: '8',
-      category: '水电',
-      note: '电费',
-      amount: -126.32,
-      account: '支付宝',
-      date: at(0, 3, 10, 8),
-      icon: Icons.lightbulb_outline,
-    ),
-  ];
-
-  for (var i = 1; i <= 11; i++) {
-    records.addAll([
-      _BillRecord(
-        id: 'm${i}a',
-        category: '餐饮',
-        note: '日常餐饮',
-        amount: -(420.0 + i * 36),
-        account: '微信',
-        date: at(-i, 11, 12, 10),
-        icon: Icons.restaurant_outlined,
-      ),
-      _BillRecord(
-        id: 'm${i}b',
-        category: '购物',
-        note: '生活用品',
-        amount: -(230.0 + i * 24),
-        account: '支付宝',
-        date: at(-i, 16, 16, 30),
-        icon: Icons.shopping_bag_outlined,
-      ),
-      _BillRecord(
-        id: 'm${i}c',
-        category: '工资',
-        note: '月度工资',
-        amount: 7200.0 + i * 80,
-        account: '银行卡',
-        date: at(-i, 15, 9, 0),
-        icon: Icons.payments_outlined,
-      ),
-      _BillRecord(
-        id: 'm${i}d',
-        category: '交通',
-        note: '通勤',
-        amount: -(160.0 + i * 9),
-        account: '支付宝',
-        date: at(-i, 23, 18, 20),
-        icon: Icons.directions_car_outlined,
-      ),
-    ]);
-  }
-  return records;
 }
 
 List<_CategoryStat> _buildCategoryStats(
