@@ -577,27 +577,29 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
         children: [
           // 上一天
           _CircleBtn(icon: Icons.chevron_left, onTap: _goToPrevDay),
-          const Spacer(),
+          const SizedBox(width: 8),
           // 居中标题
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppStrings.navDiary,
-                style: AppTypography.title.copyWith(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w500,
-                  height: 1.12,
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  AppStrings.navDiary,
+                  style: AppTypography.title.copyWith(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w500,
+                    height: 1.12,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _HeaderDateHotspot(
-                date: _currentDate,
-                onTap: _showCalendarPicker,
-              ),
-            ],
+                const SizedBox(height: 12),
+                _HeaderDateHotspot(
+                  date: _currentDate,
+                  onTap: _showCalendarPicker,
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           // 下一天
           _CircleBtn(icon: Icons.chevron_right, onTap: _goToNextDay),
         ],
@@ -2024,6 +2026,8 @@ class _HeaderDateHotspot extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Text(
           '$prefix${_formatDiaryHeaderDate(date)}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: AppTypography.caption.copyWith(
             fontSize: 21,
             color: AppColors.textSecondary,
