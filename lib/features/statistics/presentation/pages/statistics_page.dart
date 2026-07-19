@@ -221,8 +221,69 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (context) => _BillDetailSheet(record: record),
+      builder: (context) => _BillDetailSheet(
+        record: record,
+        onEdit: () => _openBillEditor(record),
+        onDelete: () => _confirmDeleteBill(record),
+      ),
     );
+  }
+
+  Future<void> _openBillEditor(_BillRecord record) async {
+    final result = await showDialog<_BillEditResult>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => _BillEditDialog(record: record),
+    );
+    if (result == null) return;
+
+    await LocalDataApi.instance.updateLedgerTransaction(
+      record.id,
+      UpdateLedgerTransactionInput(
+        type: result.type,
+        amount: result.amount,
+        categoryId: result.categoryId,
+        accountId: result.accountId,
+        note: result.note,
+        transactionTime: record.date,
+        receiptImagePaths: result.receiptImagePaths,
+      ),
+    );
+    await _loadPageData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('账单已更新')));
+  }
+
+  Future<void> _confirmDeleteBill(_BillRecord record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => AlertDialog(
+        title: const Text('删除账单'),
+        content: Text('确定删除「${record.displayNote}」这笔账单吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await LocalDataApi.instance.deleteLedgerTransaction(record.id);
+    await _loadPageData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('账单已删除')));
   }
 
   Future<void> _pickReportMonth() async {
@@ -1273,7 +1334,7 @@ class _BillDateHeader extends StatelessWidget {
 
 class _TxnTile extends StatelessWidget {
   final _BillRecord record;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _TxnTile({required this.record, required this.onTap});
 
@@ -1335,10 +1396,133 @@ class _TxnTile extends StatelessWidget {
   }
 }
 
+List<Widget> _buildReadonlyBillGroups(List<_BillRecord> records) {
+  final widgets = <Widget>[];
+  var currentKey = '';
+  var currentDayRecords = <_BillRecord>[];
+
+  void flushGroup() {
+    if (currentDayRecords.isEmpty) return;
+    final day = DateTime(
+      currentDayRecords.first.date.year,
+      currentDayRecords.first.date.month,
+      currentDayRecords.first.date.day,
+    );
+    final total = currentDayRecords.fold(
+      0.0,
+      (sum, record) => sum + record.amount.abs(),
+    );
+    widgets.add(
+      _BillDateHeader(
+        date: day,
+        label: currentDayRecords.first.isIncome ? '收入' : '支出',
+        amount: total,
+      ),
+    );
+    widgets.addAll(
+      currentDayRecords.map((record) => _TxnTile(record: record, onTap: null)),
+    );
+  }
+
+  for (final record in records) {
+    final key = _dateKey(record.date);
+    if (currentKey.isEmpty) currentKey = key;
+    if (key != currentKey) {
+      flushGroup();
+      currentKey = key;
+      currentDayRecords = [];
+    }
+    currentDayRecords.add(record);
+  }
+  flushGroup();
+  return widgets;
+}
+
+void _showCategoryBillsSheet(
+  BuildContext context, {
+  required String title,
+  required List<_BillRecord> records,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.bg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (context) => _CategoryBillsSheet(title: title, records: records),
+  );
+}
+
+class _CategoryBillsSheet extends StatelessWidget {
+  final String title;
+  final List<_BillRecord> records;
+
+  const _CategoryBillsSheet({required this.title, required this.records});
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = List<_BillRecord>.of(records)
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.78,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 54,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.subtitle.copyWith(
+                      color: AppColors.navSelected,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${sorted.length}笔',
+                    style: AppTypography.caption.copyWith(fontSize: 17),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(children: _buildReadonlyBillGroups(sorted)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BillDetailSheet extends StatelessWidget {
   final _BillRecord record;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _BillDetailSheet({required this.record});
+  const _BillDetailSheet({
+    required this.record,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1365,7 +1549,39 @@ class _BillDetailSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 22),
-              _StatIcon(icon: record.icon),
+              Row(
+                children: [
+                  const SizedBox(width: 92),
+                  Expanded(
+                    child: Center(child: _StatIcon(icon: record.icon)),
+                  ),
+                  SizedBox(
+                    width: 92,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _DetailActionButton(
+                          icon: Icons.edit_outlined,
+                          color: themeColor,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            onEdit();
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _DetailActionButton(
+                          icon: Icons.delete_outline,
+                          color: AppColors.expense,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            onDelete();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
               Text(
                 record.isIncome
@@ -1402,6 +1618,613 @@ class _BillDetailSheet extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DetailActionButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        child: Icon(icon, size: 26, color: color),
+      ),
+    );
+  }
+}
+
+class _BillEditResult {
+  final LedgerEntryType type;
+  final double amount;
+  final int categoryId;
+  final int accountId;
+  final String note;
+  final List<String> receiptImagePaths;
+
+  const _BillEditResult({
+    required this.type,
+    required this.amount,
+    required this.categoryId,
+    required this.accountId,
+    required this.note,
+    required this.receiptImagePaths,
+  });
+}
+
+class _BillEditDialog extends StatefulWidget {
+  final _BillRecord record;
+
+  const _BillEditDialog({required this.record});
+
+  @override
+  State<_BillEditDialog> createState() => _BillEditDialogState();
+}
+
+class _BillEditDialogState extends State<_BillEditDialog> {
+  late LedgerEntryType _type;
+  late int? _categoryId;
+  late int _accountId;
+  late final TextEditingController _amountController;
+  late final TextEditingController _noteController;
+  late final List<String> _receiptImagePaths;
+  final ImagePicker _imagePicker = ImagePicker();
+  late Future<List<LedgerCategoryDto>> _categoriesFuture;
+  late Future<List<LedgerAccountDto>> _accountsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.record.type;
+    _categoryId = widget.record.categoryId;
+    _accountId = widget.record.accountId;
+    _amountController = TextEditingController(
+      text: widget.record.amount.abs().toStringAsFixed(2),
+    );
+    _noteController = TextEditingController(text: widget.record.note);
+    _receiptImagePaths = List<String>.of(widget.record.receiptImagePaths);
+    _categoriesFuture = LocalDataApi.instance.listLedgerCategories(type: _type);
+    _accountsFuture = LocalDataApi.instance.listLedgerAccounts();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  void _changeType(LedgerEntryType type) {
+    if (_type == type) return;
+    setState(() {
+      _type = type;
+      _categoryId = null;
+      _categoriesFuture = LocalDataApi.instance.listLedgerCategories(
+        type: _type,
+      );
+    });
+  }
+
+  Future<void> _pickReceiptImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheet),
+      builder: (context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: _ReceiptEditSourceButton(
+                  icon: Icons.photo_library_outlined,
+                  label: '相册',
+                  onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ReceiptEditSourceButton(
+                  icon: Icons.photo_camera_outlined,
+                  label: '拍摄',
+                  onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null) return;
+    final image = await _imagePicker.pickImage(source: source);
+    if (image == null || !mounted) return;
+    setState(() => _receiptImagePaths.add(image.path));
+  }
+
+  void _save(
+    List<LedgerCategoryDto> categories,
+    List<LedgerAccountDto> accounts,
+  ) {
+    final amount = double.tryParse(_amountController.text.trim());
+    final categoryId =
+        _categoryId ?? (categories.isEmpty ? null : categories.first.id);
+    if (amount == null ||
+        amount <= 0 ||
+        categoryId == null ||
+        accounts.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写有效金额和分类')));
+      return;
+    }
+    Navigator.of(context).pop(
+      _BillEditResult(
+        type: _type,
+        amount: amount,
+        categoryId: categoryId,
+        accountId: accounts.any((account) => account.id == _accountId)
+            ? _accountId
+            : accounts.first.id,
+        note: _noteController.text.trim(),
+        receiptImagePaths: List.of(_receiptImagePaths),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 520,
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          child: FutureBuilder<List<Object>>(
+            future: Future.wait<Object>([_categoriesFuture, _accountsFuture]),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return SizedBox(
+                  height: 220,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.navSelected,
+                    ),
+                  ),
+                );
+              }
+
+              final categories = snapshot.data![0] as List<LedgerCategoryDto>;
+              final accounts = snapshot.data![1] as List<LedgerAccountDto>;
+              final selectedCategoryId =
+                  categories.any((category) => category.id == _categoryId)
+                  ? _categoryId
+                  : (categories.isEmpty ? null : categories.first.id);
+              final selectedAccountId =
+                  accounts.any((account) => account.id == _accountId)
+                  ? _accountId
+                  : (accounts.isEmpty ? null : accounts.first.id);
+
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '编辑账单',
+                          style: AppTypography.subtitle.copyWith(fontSize: 22),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icon(
+                            Icons.close,
+                            color: AppColors.textSecondary,
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _EditTypeButton(
+                            label: '支出',
+                            selected: _type == LedgerEntryType.expense,
+                            color: AppColors.expense,
+                            onTap: () => _changeType(LedgerEntryType.expense),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _EditTypeButton(
+                            label: '收入',
+                            selected: _type == LedgerEntryType.income,
+                            color: AppColors.income,
+                            onTap: () => _changeType(LedgerEntryType.income),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: AppTypography.amount.copyWith(fontSize: 28),
+                      decoration: const InputDecoration(prefixText: '¥ '),
+                    ),
+                    const SizedBox(height: 14),
+                    _CapsulePickerField<LedgerCategoryDto>(
+                      value: selectedCategoryId,
+                      items: categories,
+                      idOf: (category) => category.id,
+                      labelOf: (category) => category.name,
+                      onChanged: (value) => setState(() => _categoryId = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _CapsulePickerField<LedgerAccountDto>(
+                      value: selectedAccountId,
+                      items: accounts,
+                      idOf: (account) => account.id,
+                      labelOf: (account) => account.name,
+                      onChanged: (value) {
+                        if (value != null) setState(() => _accountId = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _noteController,
+                      maxLines: 3,
+                      style: AppTypography.body.copyWith(fontSize: 18),
+                      decoration: const InputDecoration(hintText: '备注'),
+                    ),
+                    const SizedBox(height: 14),
+                    _EditableReceiptPanel(
+                      imagePaths: _receiptImagePaths,
+                      onAdd: _pickReceiptImage,
+                      onRemove: (index) =>
+                          setState(() => _receiptImagePaths.removeAt(index)),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('取消'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            style: AppTheme.primaryFilledButtonStyle.copyWith(
+                              padding: WidgetStateProperty.all(
+                                const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                            onPressed: () => _save(categories, accounts),
+                            child: const Text('保存'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditTypeButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _EditTypeButton({
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? color : color.withValues(alpha: 0.1),
+          borderRadius: AppRadius.md,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: AppTypography.body.copyWith(
+            color: selected ? AppColors.white : color,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CapsulePickerField<T> extends StatelessWidget {
+  final int? value;
+  final List<T> items;
+  final int Function(T item) idOf;
+  final String Function(T item) labelOf;
+  final ValueChanged<int?> onChanged;
+
+  const _CapsulePickerField({
+    required this.value,
+    required this.items,
+    required this.idOf,
+    required this.labelOf,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String? selected;
+    for (final item in items) {
+      if (idOf(item) == value) {
+        selected = labelOf(item);
+        break;
+      }
+    }
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showModalBottomSheet<int>(
+          context: context,
+          backgroundColor: AppColors.card,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheet),
+          builder: (context) => _CapsuleOptionSheet<T>(
+            value: value,
+            items: items,
+            idOf: idOf,
+            labelOf: labelOf,
+          ),
+        );
+        if (picked != null) onChanged(picked);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.md,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                selected ?? '请选择',
+                style: AppTypography.body.copyWith(
+                  color: selected == null ? AppColors.textHint : AppColors.text,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down, color: AppColors.navSelected),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CapsuleOptionSheet<T> extends StatelessWidget {
+  final int? value;
+  final List<T> items;
+  final int Function(T item) idOf;
+  final String Function(T item) labelOf;
+
+  const _CapsuleOptionSheet({
+    required this.value,
+    required this.items,
+    required this.idOf,
+    required this.labelOf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 26),
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: items.map((item) {
+            final id = idOf(item);
+            final selected = id == value;
+            return GestureDetector(
+              onTap: () => Navigator.of(context).pop(id),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.navSelected
+                      : AppColors.navSelected.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.capsule,
+                ),
+                child: Text(
+                  labelOf(item),
+                  style: AppTypography.body.copyWith(
+                    color: selected ? AppColors.white : AppColors.navSelected,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditableReceiptPanel extends StatelessWidget {
+  final List<String> imagePaths;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  const _EditableReceiptPanel({
+    required this.imagePaths,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = (MediaQuery.of(context).size.width - 112) / 4;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          GestureDetector(
+            onTap: onAdd,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: AppColors.navSelected.withValues(alpha: 0.1),
+                borderRadius: AppRadius.md,
+              ),
+              child: Icon(
+                Icons.add_photo_alternate_outlined,
+                color: AppColors.navSelected,
+                size: 24,
+              ),
+            ),
+          ),
+          ...imagePaths.asMap().entries.map((entry) {
+            return Stack(
+              children: [
+                GestureDetector(
+                  onTap: () =>
+                      _showReceiptImageViewer(context, imagePaths, entry.key),
+                  child: ClipRRect(
+                    borderRadius: AppRadius.md,
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: _ReceiptAttachmentImage(path: entry.value),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 3,
+                  right: 3,
+                  child: GestureDetector(
+                    onTap: () => onRemove(entry.key),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: AppColors.expense,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReceiptEditSourceButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ReceiptEditSourceButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.navSelected.withValues(alpha: 0.1),
+          borderRadius: AppRadius.md,
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppColors.navSelected, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: AppTypography.body.copyWith(
+                color: AppColors.navSelected,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1731,6 +2554,13 @@ class _ReportPage extends StatelessWidget {
                 title: reportType == _ReportType.income ? '收入来源' : '支出分类',
                 stats: categories,
                 emptyText: '暂无$title分类数据',
+                onStatTap: (stat) => _showCategoryBillsSheet(
+                  context,
+                  title: stat.name,
+                  records: monthRecords
+                      .where((record) => record.category == stat.name)
+                      .toList(),
+                ),
               ),
               const SizedBox(height: 52),
             ],
@@ -2071,11 +2901,13 @@ class _DonutSection extends StatelessWidget {
   final String title;
   final List<_CategoryStat> stats;
   final String emptyText;
+  final ValueChanged<_CategoryStat>? onStatTap;
 
   const _DonutSection({
     required this.title,
     required this.stats,
     required this.emptyText,
+    this.onStatTap,
   });
 
   @override
@@ -2131,7 +2963,13 @@ class _DonutSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            ...stats.map((stat) => _CategoryStatRow(stat: stat, total: total)),
+            ...stats.map(
+              (stat) => _CategoryStatRow(
+                stat: stat,
+                total: total,
+                onTap: () => onStatTap?.call(stat),
+              ),
+            ),
           ],
         ],
       ),
@@ -2171,37 +3009,42 @@ class _DonutPainter extends CustomPainter {
 class _CategoryStatRow extends StatelessWidget {
   final _CategoryStat stat;
   final double total;
+  final VoidCallback? onTap;
 
-  const _CategoryStatRow({required this.stat, required this.total});
+  const _CategoryStatRow({required this.stat, required this.total, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final pct = total == 0 ? 0 : stat.amount / total;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          _StatIcon(icon: stat.icon, color: stat.color),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              stat.name,
-              style: AppTypography.body.copyWith(
-                color: AppColors.text,
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          children: [
+            _StatIcon(icon: stat.icon, color: stat.color),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                stat.name,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.text,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
-          Text(
-            '¥${stat.amount.toStringAsFixed(0)}  ${(pct * 100).round()}%',
-            style: AppTypography.caption.copyWith(
-              color: stat.color,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
+            Text(
+              '¥${stat.amount.toStringAsFixed(0)}  ${(pct * 100).round()}%',
+              style: AppTypography.caption.copyWith(
+                color: stat.color,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2347,8 +3190,11 @@ class _EmptyBills extends StatelessWidget {
 }
 
 class _BillRecord {
-  final String id;
+  final int id;
+  final LedgerEntryType type;
+  final int categoryId;
   final String category;
+  final int accountId;
   final String note;
   final String account;
   final DateTime date;
@@ -2359,7 +3205,10 @@ class _BillRecord {
 
   const _BillRecord({
     required this.id,
+    required this.type,
+    required this.categoryId,
     required this.category,
+    required this.accountId,
     required this.note,
     required this.account,
     required this.date,
@@ -2371,8 +3220,11 @@ class _BillRecord {
 
   factory _BillRecord.fromDto(LedgerTransactionDto dto) {
     return _BillRecord(
-      id: dto.id.toString(),
+      id: dto.id,
+      type: dto.type,
+      categoryId: dto.categoryId,
       category: dto.categoryName,
+      accountId: dto.accountId,
       note: dto.note,
       account: dto.accountName,
       date: dto.transactionTime,
@@ -2383,7 +3235,8 @@ class _BillRecord {
     );
   }
 
-  bool get isIncome => amount >= 0;
+  bool get isIncome => type == LedgerEntryType.income;
+  String get displayNote => note.isEmpty ? category : note;
 }
 
 class _CategoryStat {

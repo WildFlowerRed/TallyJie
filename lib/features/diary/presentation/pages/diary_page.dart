@@ -289,11 +289,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
       _entries = _entries
           .map((entry) => entry.id == saved.id ? saved : entry)
           .toList();
-      if (DateHelpers.isSameDay(saved.entryDate, _currentDate) &&
-          _isTodaySelected) {
-        _textController.text = saved.content;
-        _images = List.of(saved.images);
-      }
     });
     return saved;
   }
@@ -835,41 +830,44 @@ class _DiaryEditDialogState extends State<_DiaryEditDialog> {
               const SizedBox(height: 22),
               Row(
                 children: [
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
+                  Expanded(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
+                      onPressed: _addImage,
+                      icon: const Icon(Icons.photo_library_outlined, size: 22),
+                      label: const Text('添加图片', style: TextStyle(fontSize: 18)),
                     ),
-                    onPressed: _addImage,
-                    icon: const Icon(Icons.photo_library_outlined, size: 28),
-                    label: const Text('添加图片', style: TextStyle(fontSize: 22)),
                   ),
-                  const Spacer(),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 16,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
+                      onPressed: _close,
+                      child: const Text('取消', style: TextStyle(fontSize: 18)),
                     ),
-                    onPressed: _close,
-                    child: const Text('取消', style: TextStyle(fontSize: 22)),
                   ),
-                  const SizedBox(width: 14),
-                  FilledButton.icon(
-                    style: AppTheme.primaryFilledButtonStyle.copyWith(
-                      padding: WidgetStateProperty.all(
-                        const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 18,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: AppTheme.primaryFilledButtonStyle.copyWith(
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(vertical: 12),
                         ),
+                        minimumSize: WidgetStateProperty.all(Size.zero),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
+                      onPressed: _save,
+                      icon: const Icon(Icons.save_outlined, size: 22),
+                      label: const Text('保存', style: TextStyle(fontSize: 18)),
                     ),
-                    onPressed: _save,
-                    icon: const Icon(Icons.save_outlined, size: 28),
-                    label: const Text('保存', style: TextStyle(fontSize: 22)),
                   ),
                 ],
               ),
@@ -1090,7 +1088,7 @@ class _DiaryContent extends StatelessWidget {
                           Text(
                             '${date.month} / ${date.day}',
                             style: AppTypography.date42.copyWith(
-                              fontSize: 58,
+                              fontSize: 46,
                               fontWeight: FontWeight.w300,
                               height: 1.05,
                             ),
@@ -1099,7 +1097,7 @@ class _DiaryContent extends StatelessWidget {
                           Text(
                             _formatDiaryCardYearWeekday(date),
                             style: AppTypography.caption.copyWith(
-                              fontSize: 20,
+                              fontSize: 16,
                               color: AppColors.textSecondary,
                             ),
                           ),
@@ -1107,7 +1105,7 @@ class _DiaryContent extends StatelessWidget {
                           Text(
                             _formatDiaryCardLunar(date),
                             style: AppTypography.caption.copyWith(
-                              fontSize: 17,
+                              fontSize: 14,
                               color: AppColors.textSecondary.withValues(
                                 alpha: 0.82,
                               ),
@@ -1469,7 +1467,7 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
                                         Text(
                                           '${_entry.entryDate.month} / ${_entry.entryDate.day}',
                                           style: AppTypography.date42.copyWith(
-                                            fontSize: 58,
+                                            fontSize: 46,
                                             fontWeight: FontWeight.w300,
                                             height: 1.05,
                                           ),
@@ -1480,7 +1478,7 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
                                             _entry.entryDate,
                                           ),
                                           style: AppTypography.caption.copyWith(
-                                            fontSize: 20,
+                                            fontSize: 16,
                                             color: AppColors.textSecondary,
                                           ),
                                         ),
@@ -1490,7 +1488,7 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
                                             _entry.entryDate,
                                           ),
                                           style: AppTypography.caption.copyWith(
-                                            fontSize: 17,
+                                            fontSize: 14,
                                             color: AppColors.textSecondary
                                                 .withValues(alpha: 0.82),
                                           ),
@@ -2159,7 +2157,7 @@ class _HeaderDateHotspot extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppTypography.caption.copyWith(
-            fontSize: 21,
+            fontSize: 17,
             color: AppColors.textSecondary,
           ),
         ),

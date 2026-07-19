@@ -27,7 +27,7 @@ class TallyJieApp extends StatelessWidget {
             return GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: _AppUiScale(scale: 0.9, child: child ?? const SizedBox()),
+              child: _AppUiScale(scale: 0.84, child: child ?? const SizedBox()),
             );
           },
         );

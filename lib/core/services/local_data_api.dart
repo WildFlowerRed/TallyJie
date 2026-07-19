@@ -137,6 +137,26 @@ class CreateLedgerTransactionInput {
   });
 }
 
+class UpdateLedgerTransactionInput {
+  final LedgerEntryType type;
+  final double amount;
+  final int categoryId;
+  final int accountId;
+  final String note;
+  final DateTime transactionTime;
+  final List<String>? receiptImagePaths;
+
+  const UpdateLedgerTransactionInput({
+    required this.type,
+    required this.amount,
+    required this.categoryId,
+    required this.accountId,
+    this.note = '',
+    required this.transactionTime,
+    this.receiptImagePaths,
+  });
+}
+
 class MonthlyBudgetDto {
   final DateTime month;
   final double? budgetAmount;
@@ -282,6 +302,29 @@ class LocalDataApi {
       budgetVersion.value++;
     }
     return id;
+  }
+
+  Future<void> updateLedgerTransaction(
+    int id,
+    UpdateLedgerTransactionInput input,
+  ) async {
+    final shouldRefreshBudget = kIsWeb
+        ? await _memory.updateTransaction(id, input)
+        : await _updateSqliteTransaction(id, input);
+    transactionsVersion.value++;
+    if (shouldRefreshBudget) {
+      budgetVersion.value++;
+    }
+  }
+
+  Future<void> deleteLedgerTransaction(int id) async {
+    final shouldRefreshBudget = kIsWeb
+        ? await _memory.deleteTransaction(id)
+        : await _deleteSqliteTransaction(id);
+    transactionsVersion.value++;
+    if (shouldRefreshBudget) {
+      budgetVersion.value++;
+    }
   }
 
   Future<List<LedgerTransactionDto>> listTransactions() async {
@@ -549,6 +592,104 @@ class LocalDataApi {
     return transactionId;
   }
 
+  Future<bool> _updateSqliteTransaction(
+    int id,
+    UpdateLedgerTransactionInput input,
+  ) async {
+    final db = await DatabaseHelper().database;
+    final existingRows = await db.query(
+      'ledger_transactions',
+      where: 'id = ? AND deleted_at IS NULL',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (existingRows.isEmpty) return false;
+
+    final categoryRows = await db.query(
+      'ledger_categories',
+      where: 'id = ?',
+      whereArgs: [input.categoryId],
+      limit: 1,
+    );
+    final accountRows = await db.query(
+      'ledger_accounts',
+      where: 'id = ?',
+      whereArgs: [input.accountId],
+      limit: 1,
+    );
+    if (categoryRows.isEmpty || accountRows.isEmpty) {
+      throw StateError('分类或账户不存在');
+    }
+
+    final oldType = _typeFromName(existingRows.first['type'] as String?);
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'ledger_transactions',
+      {
+        'type': input.type.name,
+        'amount': input.amount.abs(),
+        'category_id': input.categoryId,
+        'category_name': categoryRows.first['name'],
+        'account_id': input.accountId,
+        'account_name': accountRows.first['name'],
+        'note': input.note.trim(),
+        'transaction_time': input.transactionTime.toIso8601String(),
+        'sync_status': 'pending_update',
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (input.receiptImagePaths != null) {
+      await db.update(
+        'transaction_attachments',
+        {'deleted_at': now, 'sync_status': 'pending_delete'},
+        where: 'transaction_id = ? AND deleted_at IS NULL',
+        whereArgs: [id],
+      );
+      for (final path in input.receiptImagePaths!) {
+        await db.insert('transaction_attachments', {
+          'transaction_id': id,
+          'file_path': path,
+          'file_name': path.split(RegExp(r'[/\\]')).last,
+          'file_type': 'image',
+          'file_size': 0,
+          'sync_status': 'pending_create',
+          'created_at': now,
+        });
+      }
+    }
+    return oldType == LedgerEntryType.expense ||
+        input.type == LedgerEntryType.expense;
+  }
+
+  Future<bool> _deleteSqliteTransaction(int id) async {
+    final db = await DatabaseHelper().database;
+    final existingRows = await db.query(
+      'ledger_transactions',
+      where: 'id = ? AND deleted_at IS NULL',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (existingRows.isEmpty) return false;
+
+    final oldType = _typeFromName(existingRows.first['type'] as String?);
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'ledger_transactions',
+      {'deleted_at': now, 'sync_status': 'pending_delete', 'updated_at': now},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    await db.update(
+      'transaction_attachments',
+      {'deleted_at': now, 'sync_status': 'pending_delete'},
+      where: 'transaction_id = ?',
+      whereArgs: [id],
+    );
+    return oldType == LedgerEntryType.expense;
+  }
+
   String _buildTransactionNo(String now) {
     return 'tx_${now.replaceAll(RegExp(r'[^0-9]'), '')}_'
         '${DateTime.now().microsecondsSinceEpoch}';
@@ -717,6 +858,44 @@ class _MemoryStore {
   List<LedgerTransactionDto> listTransactions() {
     return List<LedgerTransactionDto>.of(_transactions)
       ..sort((a, b) => b.transactionTime.compareTo(a.transactionTime));
+  }
+
+  Future<bool> updateTransaction(
+    int id,
+    UpdateLedgerTransactionInput input,
+  ) async {
+    final index = _transactions.indexWhere((item) => item.id == id);
+    if (index < 0) return false;
+    final old = _transactions[index];
+    final category = _categories.firstWhere((c) => c.id == input.categoryId);
+    final account = _accounts.firstWhere((a) => a.id == input.accountId);
+    _transactions[index] = LedgerTransactionDto(
+      id: old.id,
+      transactionNo: old.transactionNo,
+      type: input.type,
+      amount: input.amount.abs(),
+      categoryId: category.id,
+      categoryName: category.name,
+      accountId: account.id,
+      accountName: account.name,
+      note: input.note.trim(),
+      transactionTime: input.transactionTime,
+      source: old.source,
+      iconCode: category.iconCode,
+      receiptCount: input.receiptImagePaths?.length ?? old.receiptCount,
+      receiptImagePaths: List.of(
+        input.receiptImagePaths ?? old.receiptImagePaths,
+      ),
+    );
+    return old.type == LedgerEntryType.expense ||
+        input.type == LedgerEntryType.expense;
+  }
+
+  Future<bool> deleteTransaction(int id) async {
+    final index = _transactions.indexWhere((item) => item.id == id);
+    if (index < 0) return false;
+    final old = _transactions.removeAt(index);
+    return old.type == LedgerEntryType.expense;
   }
 
   Future<MonthlyBudgetDto> getBudget(DateTime month) async {

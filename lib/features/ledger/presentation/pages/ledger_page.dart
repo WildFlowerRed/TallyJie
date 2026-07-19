@@ -490,14 +490,14 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
 
                   // 保存
                   GestureDetector(
                     onTap: _save,
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: AppColors.text,
                         borderRadius: AppRadius.md,
@@ -507,7 +507,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                           '保存账单',
                           style: AppTypography.body.copyWith(
                             color: AppColors.white,
-                            fontSize: 22,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -549,9 +549,9 @@ class _ReceiptPickerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card,
         borderRadius: AppRadius.md,
         border: Border.all(color: AppColors.divider),
       ),
@@ -562,26 +562,25 @@ class _ReceiptPickerCard extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 18),
+              padding: const EdgeInsets.symmetric(vertical: 9),
               decoration: BoxDecoration(
                 color: AppColors.card,
                 borderRadius: AppRadius.md,
-                border: Border.all(color: AppColors.divider),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.add_photo_alternate_outlined,
-                    size: 30,
+                    size: 20,
                     color: AppColors.textSecondary,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Text(
                     '添加凭证',
                     style: AppTypography.body.copyWith(
                       color: AppColors.textSecondary,
-                      fontSize: 21,
+                      fontSize: 15,
                     ),
                   ),
                 ],
@@ -589,10 +588,10 @@ class _ReceiptPickerCard extends StatelessWidget {
             ),
           ),
           if (images.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 8,
+              runSpacing: 8,
               children: images.asMap().entries.map((entry) {
                 final size = (MediaQuery.of(context).size.width - 96) / 3;
                 return Stack(
@@ -612,15 +611,15 @@ class _ReceiptPickerCard extends StatelessWidget {
                       child: GestureDetector(
                         onTap: () => onRemove(entry.key),
                         child: Container(
-                          width: 32,
-                          height: 32,
+                          width: 26,
+                          height: 26,
                           decoration: BoxDecoration(
                             color: AppColors.text.withValues(alpha: 0.58),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.close,
-                            size: 20,
+                            size: 16,
                             color: Colors.white,
                           ),
                         ),
@@ -690,7 +689,7 @@ class _ReceiptSourceButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.navSelected.withValues(alpha: 0.1),
           borderRadius: AppRadius.md,
@@ -700,13 +699,13 @@ class _ReceiptSourceButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, size: 34, color: AppColors.navSelected),
-            const SizedBox(height: 10),
+            Icon(icon, size: 24, color: AppColors.navSelected),
+            const SizedBox(height: 6),
             Text(
               label,
               style: AppTypography.body.copyWith(
                 color: AppColors.navSelected,
-                fontSize: 21,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
