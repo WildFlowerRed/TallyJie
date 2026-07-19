@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/app_radius.dart';
+import '../../../../app/theme/app_shadows.dart';
 
 /// 记账账本
 class LedgerPage extends ConsumerStatefulWidget {
@@ -19,6 +20,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   int? _selectedAccId;
   final TextEditingController _noteCtrl = TextEditingController();
   DateTime _selectedTime = DateTime.now();
+  bool _isKeypadOpen = false;
 
   final _expenseCats = [
     {
@@ -237,6 +239,14 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       _isExpense ? _expenseCats : _incomeCats;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showAmountKeypad();
+    });
+  }
+
+  @override
   void dispose() {
     _noteCtrl.dispose();
     super.dispose();
@@ -264,6 +274,47 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
           _amount += key;
         }
       }
+    });
+  }
+
+  Future<void> _showAmountKeypad() async {
+    if (_isKeypadOpen) return;
+    _isKeypadOpen = true;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final accent = _isExpense ? AppColors.expense : AppColors.income;
+            return _AmountKeypadSheet(
+              amount: _amount,
+              accent: accent,
+              bottomInset: bottomInset,
+              onKey: (key) {
+                _onKey(key);
+                setSheetState(() {});
+              },
+              onDone: () => Navigator.of(ctx).pop(),
+            );
+          },
+        );
+      },
+    );
+
+    _isKeypadOpen = false;
+  }
+
+  void _switchType(bool isExpense) {
+    setState(() {
+      _isExpense = isExpense;
+      _selectedCatId = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showAmountKeypad();
     });
   }
 
@@ -351,9 +402,19 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
               const SizedBox(height: 20),
 
               // 金额
-              Text(
-                _amount.isEmpty ? '¥0.00' : '¥$_amount',
-                style: AppTypography.amountLarge.copyWith(color: accent),
+              GestureDetector(
+                onTap: _showAmountKeypad,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    _amount.isEmpty ? '¥0.00' : '¥$_amount',
+                    style: AppTypography.amountLarge.copyWith(color: accent),
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
               Container(
@@ -371,7 +432,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                       label: '支出',
                       selected: _isExpense,
                       color: AppColors.expense,
-                      onTap: () => setState(() => _isExpense = true),
+                      onTap: () => _switchType(true),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -380,15 +441,11 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                       label: '收入',
                       selected: !_isExpense,
                       color: AppColors.income,
-                      onTap: () => setState(() => _isExpense = false),
+                      onTap: () => _switchType(false),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // 数字键盘
-              _buildKeypad(),
               const SizedBox(height: 24),
 
               // 分类
@@ -482,41 +539,141 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       ),
     );
   }
+}
 
-  Widget _buildKeypad() {
+class _AmountKeypadSheet extends StatelessWidget {
+  final String amount;
+  final Color accent;
+  final double bottomInset;
+  final ValueChanged<String> onKey;
+  final VoidCallback onDone;
+
+  const _AmountKeypadSheet({
+    required this.amount,
+    required this.accent,
+    required this.bottomInset,
+    required this.onKey,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height * 0.5;
     final keys = [
       ['1', '2', '3'],
       ['4', '5', '6'],
       ['7', '8', '9'],
       ['.', '0', '⌫'],
     ];
-    return Column(
-      children: keys.map((row) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: row.map((k) {
-            return GestureDetector(
-              onTap: () => _onKey(k),
-              child: Container(
-                width: 72,
-                height: 52,
-                margin: const EdgeInsets.all(4),
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        height: height,
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+        decoration: const BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [AppShadows.card],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Container(
+                width: 42,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadius.md,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  k,
-                  style: AppTypography.subtitle.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            );
-          }).toList(),
-        );
-      }).toList(),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Text('输入金额', style: AppTypography.subtitle),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: onDone,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: AppRadius.capsule,
+                      ),
+                      child: Text(
+                        '完成',
+                        style: AppTypography.caption.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                amount.isEmpty ? '¥0.00' : '¥$amount',
+                style: AppTypography.amount.copyWith(color: accent),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: Column(
+                  children: keys.map((row) {
+                    return Expanded(
+                      child: Row(
+                        children: row.map((key) {
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: _KeypadButton(
+                                label: key,
+                                onTap: () => onKey(key),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KeypadButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _KeypadButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.md,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w500),
+        ),
+      ),
     );
   }
 }
