@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_font_scale.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_typography.dart';
@@ -39,6 +40,7 @@ class _SettingsDialog extends StatefulWidget {
 
 class _SettingsDialogState extends State<_SettingsDialog> {
   String _theme = AppColors.currentTheme;
+  int _fontScaleIndex = AppFontScale.selectedIndex;
   String? _fileStatus;
 
   void _setFileStatus(String value) {
@@ -74,6 +76,18 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         child: Text(
                           '设置',
                           style: AppTypography.subtitle.copyWith(fontSize: 26),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionCard(
+                        icon: Icons.format_size_outlined,
+                        title: '字体大小',
+                        child: _FontScaleControl(
+                          selectedIndex: _fontScaleIndex,
+                          onChanged: (index) {
+                            AppFontScale.apply(AppFontScale.steps[index]);
+                            setState(() => _fontScaleIndex = index);
+                          },
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -209,6 +223,154 @@ class _SectionCard extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+class _FontScaleControl extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  const _FontScaleControl({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  void _updateFromPosition(double dx, double width) {
+    if (width <= 0) return;
+    final usableWidth = width - 44;
+    final value = ((dx - 22) / usableWidth).clamp(0.0, 1.0);
+    final index = (value * (AppFontScale.steps.length - 1)).round();
+    onChanged(index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = AppFontScale.label(AppFontScale.steps[selectedIndex]);
+    return Column(
+      children: [
+        Center(
+          child: Text(
+            percent,
+            style: AppTypography.title.copyWith(
+              color: AppColors.navSelected,
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Text(
+              'A',
+              style: AppTypography.body.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 28,
+                fontWeight: FontWeight.w500,
+                height: 1,
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final progress =
+                        selectedIndex / (AppFontScale.steps.length - 1);
+                    final centerX = 22 + (width - 44) * progress;
+                    final activeWidth = (centerX + 20).clamp(40.0, width);
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (details) =>
+                          _updateFromPosition(details.localPosition.dx, width),
+                      onHorizontalDragUpdate: (details) =>
+                          _updateFromPosition(details.localPosition.dx, width),
+                      child: Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: AppRadius.capsule,
+                            ),
+                          ),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutQuart,
+                            width: activeWidth,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.navSelected,
+                              borderRadius: AppRadius.capsule,
+                            ),
+                          ),
+                          for (var i = 0; i < AppFontScale.steps.length; i++)
+                            Positioned(
+                              left:
+                                  22 +
+                                  (width - 44) *
+                                      (i / (AppFontScale.steps.length - 1)) -
+                                  5,
+                              top: 21,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: i <= selectedIndex
+                                      ? AppColors.white.withValues(alpha: 0.45)
+                                      : AppColors.divider,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          AnimatedPositioned(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutQuart,
+                            left: centerX - 20,
+                            top: 6,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.card,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.shadowColor.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 18),
+            Text(
+              'A',
+              style: AppTypography.body.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 44,
+                fontWeight: FontWeight.w600,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

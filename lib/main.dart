@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/theme/app_colors.dart';
+import 'app/theme/app_font_scale.dart';
 import 'app/theme/app_theme.dart';
 import 'app/router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppColors.restoreSavedPalette();
+  await AppFontScale.restore();
   runApp(const ProviderScope(child: TallyJieApp()));
 }
 
@@ -24,10 +26,18 @@ class TallyJieApp extends StatelessWidget {
           theme: AppTheme.light,
           routerConfig: AppRouter.router,
           builder: (context, child) {
-            return GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: _AppUiScale(scale: 0.84, child: child ?? const SizedBox()),
+            return ValueListenableBuilder<int>(
+              valueListenable: AppFontScale.version,
+              builder: (context, _, scaledChild) => GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: _AppUiScale(
+                  scale: 0.84,
+                  fontScale: AppFontScale.current,
+                  child: scaledChild ?? const SizedBox(),
+                ),
+              ),
+              child: child ?? const SizedBox(),
             );
           },
         );
@@ -38,9 +48,14 @@ class TallyJieApp extends StatelessWidget {
 
 class _AppUiScale extends StatelessWidget {
   final double scale;
+  final double fontScale;
   final Widget child;
 
-  const _AppUiScale({required this.scale, required this.child});
+  const _AppUiScale({
+    required this.scale,
+    required this.fontScale,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +88,7 @@ class _AppUiScale extends StatelessWidget {
               child: MediaQuery(
                 data: media.copyWith(
                   size: logicalSize,
+                  textScaler: TextScaler.linear(fontScale),
                   padding: _scaleInsets(media.padding),
                   viewPadding: _scaleInsets(media.viewPadding),
                   viewInsets: _scaleInsets(media.viewInsets),
