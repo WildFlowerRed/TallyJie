@@ -352,7 +352,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
   }
 
   Future<void> _openDiaryDetail(DiaryEntryDto entry) async {
-    await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (context) => _DiaryDetailPage(
           entry: entry,

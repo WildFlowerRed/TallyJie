@@ -89,7 +89,6 @@ class StatisticsPage extends ConsumerStatefulWidget {
 }
 
 class _StatisticsPageState extends ConsumerState<StatisticsPage> {
-  bool _showReport = false;
   _BillTypeFilter _billFilter = _BillTypeFilter.all;
   _TimeFilter _timeFilter = _TimeFilter.month;
   _ReportType _reportType = _ReportType.expense;
@@ -152,11 +151,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     });
   }
 
-  void _showMainPage() {
-    if (mounted && _showReport) {
-      setState(() => _showReport = false);
-    }
-  }
+  void _showMainPage() {}
 
   List<_BillRecord> get _filteredRecords {
     final now = DateTime.now();
@@ -286,15 +281,23 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     ).showSnackBar(const SnackBar(content: Text('账单已删除')));
   }
 
-  Future<void> _pickReportMonth() async {
-    final picked = await showDialog<DateTime>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => _MonthPickerDialog(initialMonth: _reportMonth),
+  Future<void> _openReportPage() async {
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => _ReportPageHost(
+          records: _records,
+          initialReportType: _reportType,
+          initialMonth: _reportMonth,
+          onStateChanged: (type, month) {
+            if (!mounted) return;
+            setState(() {
+              _reportType = type;
+              _reportMonth = month;
+            });
+          },
+        ),
+      ),
     );
-    if (picked != null) {
-      setState(() => _reportMonth = picked);
-    }
   }
 
   Future<void> _openBudgetEditor() async {
@@ -317,17 +320,6 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     return ValueListenableBuilder<int>(
       valueListenable: AppColors.themeVersion,
       builder: (context, themeVersion, child) {
-        if (_showReport) {
-          return _ReportPage(
-            records: _records,
-            reportType: _reportType,
-            selectedMonth: _reportMonth,
-            onBack: () => setState(() => _showReport = false),
-            onReportTypeChanged: (type) => setState(() => _reportType = type),
-            onMonthTap: _pickReportMonth,
-          );
-        }
-
         final balance = _monthlyIncome - _monthlyExpense;
 
         return Scaffold(
@@ -368,7 +360,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                     onTimeFilterChanged: (value) =>
                         setState(() => _timeFilter = value),
                     onSearchTap: _openSearchDialog,
-                    onReportTap: () => setState(() => _showReport = true),
+                    onReportTap: _openReportPage,
                   ),
                   if (_searchQuery.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -2438,6 +2430,68 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReportPageHost extends StatefulWidget {
+  final List<_BillRecord> records;
+  final _ReportType initialReportType;
+  final DateTime initialMonth;
+  final void Function(_ReportType type, DateTime month) onStateChanged;
+
+  const _ReportPageHost({
+    required this.records,
+    required this.initialReportType,
+    required this.initialMonth,
+    required this.onStateChanged,
+  });
+
+  @override
+  State<_ReportPageHost> createState() => _ReportPageHostState();
+}
+
+class _ReportPageHostState extends State<_ReportPageHost> {
+  late _ReportType _reportType;
+  late DateTime _selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _reportType = widget.initialReportType;
+    _selectedMonth = widget.initialMonth;
+  }
+
+  void _notifyParent() {
+    widget.onStateChanged(_reportType, _selectedMonth);
+  }
+
+  Future<void> _pickMonth() async {
+    final picked = await showDialog<DateTime>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => _MonthPickerDialog(initialMonth: _selectedMonth),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _selectedMonth = picked);
+    _notifyParent();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, _, child) => _ReportPage(
+        records: widget.records,
+        reportType: _reportType,
+        selectedMonth: _selectedMonth,
+        onBack: () => Navigator.of(context).pop(),
+        onReportTypeChanged: (type) {
+          setState(() => _reportType = type);
+          _notifyParent();
+        },
+        onMonthTap: _pickMonth,
       ),
     );
   }
