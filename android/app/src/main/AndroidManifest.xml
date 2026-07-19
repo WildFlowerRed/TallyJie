@@ -7,7 +7,7 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <application
-        android:label="tallyjie"
+        android:label="TallyJie"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
