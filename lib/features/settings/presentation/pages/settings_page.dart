@@ -61,95 +61,105 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               borderRadius: BorderRadius.circular(28),
               boxShadow: AppShadows.card,
             ),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '设置',
-                        style: AppTypography.subtitle.copyWith(fontSize: 26),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, size: 28),
-                        color: AppColors.navUnselected,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _SectionCard(
-                    icon: Icons.palette_outlined,
-                    title: '主题设置',
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < AppColors.palettes.length; i++) ...[
-                          _ThemeTile(
-                            option: AppColors.palettes[i],
-                            selected: _theme == AppColors.palettes[i].label,
-                            onTap: () {
-                              AppColors.applyPalette(AppColors.palettes[i]);
-                              setState(
-                                () => _theme = AppColors.palettes[i].label,
-                              );
-                            },
-                          ),
-                          if (i != AppColors.palettes.length - 1)
-                            const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _SectionCard(
-                    icon: Icons.file_download_outlined,
-                    title: '数据导出',
-                    child: _FileAction(
-                      title: 'TallyJie_backup.zip',
-                      subtitle: '选择手机本地位置保存 ZIP 备份包',
-                      buttonLabel: '选择导出位置',
-                      onTap: () => _setFileStatus('已选择导出位置，等待后端打包 ZIP'),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _SectionCard(
-                    icon: Icons.file_upload_outlined,
-                    title: '数据导入',
-                    child: _FileAction(
-                      title: '导入 ZIP 备份包',
-                      subtitle: '从手机本地文件中选择 TallyJie 备份包',
-                      buttonLabel: '选择导入文件',
-                      onTap: () => _setFileStatus('已打开本地文件选择器，等待选择 ZIP'),
-                    ),
-                  ),
-                  if (_fileStatus != null) ...[
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: AppRadius.sm,
-                      ),
-                      child: Text(
-                        _fileStatus!,
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.text,
-                          fontSize: 18,
+                      Padding(
+                        padding: const EdgeInsets.only(right: 48),
+                        child: Text(
+                          '设置',
+                          style: AppTypography.subtitle.copyWith(fontSize: 26),
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      const SizedBox(height: 18),
+                      _SectionCard(
+                        icon: Icons.palette_outlined,
+                        title: '主题设置',
+                        child: Column(
+                          children: [
+                            for (
+                              var i = 0;
+                              i < AppColors.palettes.length;
+                              i++
+                            ) ...[
+                              _ThemeTile(
+                                option: AppColors.palettes[i],
+                                selected: _theme == AppColors.palettes[i].label,
+                                onTap: () {
+                                  AppColors.applyPalette(AppColors.palettes[i]);
+                                  setState(
+                                    () => _theme = AppColors.palettes[i].label,
+                                  );
+                                },
+                              ),
+                              if (i != AppColors.palettes.length - 1)
+                                const SizedBox(height: 12),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionCard(
+                        icon: Icons.file_download_outlined,
+                        title: '数据导出',
+                        child: _FileAction(
+                          title: 'TallyJie_backup.zip',
+                          subtitle: '选择手机本地位置保存 ZIP 备份包',
+                          buttonLabel: '选择导出位置',
+                          onTap: () => _setFileStatus('已选择导出位置，等待后端打包 ZIP'),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionCard(
+                        icon: Icons.file_upload_outlined,
+                        title: '数据导入',
+                        child: _FileAction(
+                          title: '导入 ZIP 备份包',
+                          subtitle: '从手机本地文件中选择 TallyJie 备份包',
+                          buttonLabel: '选择导入文件',
+                          onTap: () => _setFileStatus('已打开本地文件选择器，等待选择 ZIP'),
+                        ),
+                      ),
+                      if (_fileStatus != null) ...[
+                        const SizedBox(height: 18),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: AppRadius.sm,
+                          ),
+                          child: Text(
+                            _fileStatus!,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.text,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: -6,
+                  right: -8,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 28),
+                    color: AppColors.navUnselected,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
@@ -612,6 +614,19 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
 
   Future<String?> _resolveCurrentLocation() async {
     try {
+      final serviceEnabled =
+          await geolocator.Geolocator.isLocationServiceEnabled().timeout(
+            const Duration(seconds: 3),
+          );
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('请先开启手机定位服务')));
+        }
+        return null;
+      }
+
       var permission = await geolocator.Geolocator.checkPermission();
       if (permission == geolocator.LocationPermission.denied) {
         permission = await geolocator.Geolocator.requestPermission();
@@ -626,29 +641,26 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
         return null;
       }
 
+      final cached = await geolocator.Geolocator.getLastKnownPosition().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => null,
+      );
+      if (cached != null) return _labelForPosition(cached);
+
       final position = await geolocator.Geolocator.getCurrentPosition(
         locationSettings: const geolocator.LocationSettings(
-          accuracy: geolocator.LocationAccuracy.high,
+          accuracy: geolocator.LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
         ),
       );
-      final placemarks = await geocoding.Geocoding().placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-      if (placemarks.isEmpty) {
-        return '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+      return _labelForPosition(position);
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('定位超时，请手动填写位置')));
       }
-      final mark = placemarks.first;
-      final parts = <String?>[
-        mark.country,
-        mark.administrativeArea,
-        mark.locality,
-        mark.subLocality,
-      ];
-      return parts
-          .whereType<String>()
-          .where((part) => part.trim().isNotEmpty)
-          .join(' · ');
+      return null;
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -656,6 +668,31 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
         ).showSnackBar(const SnackBar(content: Text('定位失败，请手动填写位置')));
       }
       return null;
+    }
+  }
+
+  Future<String> _labelForPosition(geolocator.Position position) async {
+    final fallback =
+        '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+    try {
+      final placemarks = await geocoding.Geocoding()
+          .placemarkFromCoordinates(position.latitude, position.longitude)
+          .timeout(const Duration(seconds: 5));
+      if (placemarks.isEmpty) return fallback;
+      final mark = placemarks.first;
+      final parts = <String?>[
+        mark.country,
+        mark.administrativeArea,
+        mark.locality,
+        mark.subLocality,
+      ];
+      final label = parts
+          .whereType<String>()
+          .where((part) => part.trim().isNotEmpty)
+          .join(' · ');
+      return label.isEmpty ? fallback : label;
+    } catch (_) {
+      return fallback;
     }
   }
 
@@ -884,12 +921,15 @@ class _LocationEditorDialogState extends State<_LocationEditorDialog> {
 
   Future<void> _resolveLocation() async {
     setState(() => _locating = true);
-    final location = await widget.resolveCurrentLocation();
-    if (!mounted) return;
-    setState(() {
-      _locating = false;
-      if (location != null) _controller.text = location;
-    });
+    try {
+      final location = await widget.resolveCurrentLocation();
+      if (!mounted) return;
+      setState(() {
+        if (location != null) _controller.text = location;
+      });
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   @override
@@ -1352,8 +1392,9 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
   }
 
   void _openImageViewer(int index) {
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
+        fullscreenDialog: true,
         builder: (context) =>
             _ImageViewerPage(images: _entry.images, initialIndex: index),
       ),
@@ -1559,68 +1600,66 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            PageView.builder(
-              controller: _controller,
-              itemCount: widget.images.length,
-              onPageChanged: (index) => setState(() => _index = index),
-              itemBuilder: (context, index) {
-                return InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4,
-                  child: Center(
-                    child: _DiaryImagePreview(
-                      path: widget.images[index],
-                      fit: BoxFit.contain,
-                    ),
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.images.length,
+            onPageChanged: (index) => setState(() => _index = index),
+            itemBuilder: (context, index) {
+              return InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(
+                  child: _DiaryImagePreview(
+                    path: widget.images[index],
+                    fit: BoxFit.contain,
                   ),
-                );
-              },
+                ),
+              );
+            },
+          ),
+          Positioned(
+            top: MediaQuery.viewPaddingOf(context).top + 12,
+            left: 12,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.38),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 30),
+              ),
             ),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.38),
-                    shape: BoxShape.circle,
+          ),
+          Positioned(
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 22,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.38),
+                  borderRadius: AppRadius.capsule,
+                ),
+                child: Text(
+                  '${_index + 1} / ${widget.images.length}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.white,
+                    fontSize: 16,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 30),
                 ),
               ),
             ),
-            Positioned(
-              bottom: 22,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.38),
-                    borderRadius: AppRadius.capsule,
-                  ),
-                  child: Text(
-                    '${_index + 1} / ${widget.images.length}',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
