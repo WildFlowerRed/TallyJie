@@ -203,86 +203,11 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   }
 
   Future<void> _openSearchDialog() async {
-    final controller = TextEditingController(text: _searchQuery);
     final query = await showDialog<String>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18),
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 540),
-          padding: const EdgeInsets.fromLTRB(30, 30, 30, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '查找交易',
-                style: AppTypography.subtitle.copyWith(fontSize: 30),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                style: AppTypography.body.copyWith(fontSize: 24),
-                decoration: InputDecoration(
-                  hintText: '金额 / 备注 / 类别',
-                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 20,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: _secondaryText,
-                    size: 30,
-                  ),
-                  suffixIcon: controller.text.isNotEmpty
-                      ? IconButton(
-                          onPressed: controller.clear,
-                          icon: const Icon(Icons.close, size: 28),
-                          color: _secondaryText,
-                        )
-                      : null,
-                ),
-                onSubmitted: (value) => Navigator.of(context).pop(value),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(''),
-                    child: const Text('清空', style: TextStyle(fontSize: 20)),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消', style: TextStyle(fontSize: 20)),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(controller.text),
-                    style: AppTheme.primaryFilledButtonStyle.copyWith(
-                      padding: WidgetStateProperty.all(
-                        const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 14,
-                        ),
-                      ),
-                    ),
-                    child: const Text('搜索', style: TextStyle(fontSize: 20)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (context) => _SearchDialog(initialQuery: _searchQuery),
     );
-    controller.dispose();
     if (query != null) {
       setState(() => _searchQuery = query);
     }
@@ -488,6 +413,113 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   }
 }
 
+class _SearchDialog extends StatefulWidget {
+  final String initialQuery;
+
+  const _SearchDialog({required this.initialQuery});
+
+  @override
+  State<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends State<_SearchDialog> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+    _focusNode = FocusNode();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_focusNode.hasFocus) _focusNode.unfocus();
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close([String? value]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 540),
+        padding: const EdgeInsets.fromLTRB(30, 30, 30, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('查找交易', style: AppTypography.subtitle.copyWith(fontSize: 30)),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              style: AppTypography.body.copyWith(fontSize: 24),
+              decoration: InputDecoration(
+                hintText: '金额 / 备注 / 类别',
+                hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 20,
+                ),
+                prefixIcon: Icon(Icons.search, color: _secondaryText, size: 30),
+                suffixIcon: _controller.text.isNotEmpty
+                    ? IconButton(
+                        onPressed: () => setState(_controller.clear),
+                        icon: const Icon(Icons.close, size: 28),
+                        color: _secondaryText,
+                      )
+                    : null,
+              ),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: _close,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => _close(''),
+                  child: const Text('清空', style: TextStyle(fontSize: 20)),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => _close(),
+                  child: const Text('取消', style: TextStyle(fontSize: 20)),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: () => _close(_controller.text),
+                  style: AppTheme.primaryFilledButtonStyle.copyWith(
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                    ),
+                  ),
+                  child: const Text('搜索', style: TextStyle(fontSize: 20)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BudgetEditorDialog extends StatefulWidget {
   final double? initialAmount;
 
@@ -518,6 +550,7 @@ class _BudgetEditorDialogState extends State<_BudgetEditorDialog> {
 
   @override
   void dispose() {
+    if (_focusNode.hasFocus) _focusNode.unfocus();
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();

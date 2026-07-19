@@ -259,145 +259,12 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
   }
 
   Future<DiaryEntryDto?> _openEditDiaryDialog(DiaryEntryDto entry) async {
-    final controller = TextEditingController(text: entry.content);
-    final draftImages = List<String>.of(entry.images);
-    final locationController = TextEditingController(
-      text: entry.locationName ?? '',
-    );
     final updated = await showDialog<_DiaryEditResult>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return Dialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 18),
-            backgroundColor: AppColors.card,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 540),
-              padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '编辑日记',
-                      style: AppTypography.subtitle.copyWith(fontSize: 32),
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: controller,
-                      maxLines: null,
-                      minLines: 6,
-                      style: AppTypography.body.copyWith(fontSize: 26),
-                      decoration: InputDecoration(
-                        hintText: '今天发生了什么...',
-                        hintStyle: TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 24,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    _ImagePreviewWrap(
-                      images: draftImages,
-                      editable: true,
-                      onRemove: (index) =>
-                          setDialogState(() => draftImages.removeAt(index)),
-                    ),
-                    const SizedBox(height: 22),
-                    TextField(
-                      controller: locationController,
-                      style: AppTypography.body.copyWith(fontSize: 23),
-                      decoration: InputDecoration(
-                        prefixIcon: Icon(
-                          Icons.place_outlined,
-                          color: AppColors.navSelected,
-                          size: 30,
-                        ),
-                        hintText: '添加更详细的位置',
-                        hintStyle: TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 22,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 16,
-                            ),
-                          ),
-                          onPressed: () async {
-                            final image = await _pickOneImage();
-                            if (image == null) return;
-                            setDialogState(() => draftImages.add(image));
-                          },
-                          icon: const Icon(
-                            Icons.photo_library_outlined,
-                            size: 28,
-                          ),
-                          label: const Text(
-                            '添加图片',
-                            style: TextStyle(fontSize: 22),
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 22,
-                              vertical: 16,
-                            ),
-                          ),
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text(
-                            '取消',
-                            style: TextStyle(fontSize: 22),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        FilledButton.icon(
-                          style: AppTheme.primaryFilledButtonStyle.copyWith(
-                            padding: WidgetStateProperty.all(
-                              const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 18,
-                              ),
-                            ),
-                          ),
-                          onPressed: () => Navigator.of(context).pop(
-                            _DiaryEditResult(
-                              content: controller.text,
-                              images: draftImages,
-                              locationName: locationController.text,
-                            ),
-                          ),
-                          icon: const Icon(Icons.save_outlined, size: 28),
-                          label: const Text(
-                            '保存',
-                            style: TextStyle(fontSize: 22),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (context) =>
+          _DiaryEditDialog(entry: entry, pickImage: _pickOneImage),
     );
-    controller.dispose();
-    locationController.dispose();
     if (updated == null) return null;
     final saved = await LocalDataApi.instance.saveDiaryEntry(
       SaveDiaryEntryInput(
@@ -731,104 +598,14 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
   }
 
   Future<void> _openLocationEditor() async {
-    final controller = TextEditingController(text: _draftLocationName ?? '');
-    var locating = false;
     final value = await showDialog<String>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.card,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '记录位置',
-                  style: AppTypography.subtitle.copyWith(fontSize: 32),
-                ),
-                const SizedBox(height: 22),
-                TextField(
-                  controller: controller,
-                  style: AppTypography.body.copyWith(fontSize: 24),
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(
-                      Icons.place_outlined,
-                      color: AppColors.navSelected,
-                      size: 30,
-                    ),
-                    hintText: '国家 / 城市 / 区县 / 街道',
-                    hintStyle: TextStyle(
-                      color: AppColors.textHint,
-                      fontSize: 22,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          foregroundColor: AppColors.navSelected,
-                          side: BorderSide(color: AppColors.divider),
-                        ),
-                        onPressed: locating
-                            ? null
-                            : () async {
-                                setDialogState(() => locating = true);
-                                final location =
-                                    await _resolveCurrentLocation();
-                                setDialogState(() {
-                                  locating = false;
-                                  if (location != null) {
-                                    controller.text = location;
-                                  }
-                                });
-                              },
-                        icon: Icon(
-                          locating
-                              ? Icons.hourglass_empty_rounded
-                              : Icons.my_location_outlined,
-                          size: 28,
-                        ),
-                        label: Text(
-                          locating ? '定位中' : '获取定位',
-                          style: const TextStyle(fontSize: 22),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    FilledButton.icon(
-                      style: AppTheme.primaryFilledButtonStyle.copyWith(
-                        padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 18,
-                          ),
-                        ),
-                      ),
-                      onPressed: () =>
-                          Navigator.of(context).pop(controller.text.trim()),
-                      icon: const Icon(Icons.check_rounded, size: 28),
-                      label: const Text('确定', style: TextStyle(fontSize: 22)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (context) => _LocationEditorDialog(
+        initialLocationName: _draftLocationName ?? '',
+        resolveCurrentLocation: _resolveCurrentLocation,
       ),
     );
-    controller.dispose();
     if (value == null || !mounted) return;
     setState(() => _draftLocationName = value.isEmpty ? null : value);
   }
@@ -902,6 +679,288 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
     ['snow', '❄️', '雪天'],
     ['fog', '🌫️', '雾天'],
   ];
+}
+
+class _DiaryEditDialog extends StatefulWidget {
+  final DiaryEntryDto entry;
+  final Future<String?> Function() pickImage;
+
+  const _DiaryEditDialog({required this.entry, required this.pickImage});
+
+  @override
+  State<_DiaryEditDialog> createState() => _DiaryEditDialogState();
+}
+
+class _DiaryEditDialogState extends State<_DiaryEditDialog> {
+  late final TextEditingController _contentController;
+  late final TextEditingController _locationController;
+  late final FocusNode _contentFocusNode;
+  late final FocusNode _locationFocusNode;
+  late final List<String> _draftImages;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentController = TextEditingController(text: widget.entry.content);
+    _locationController = TextEditingController(
+      text: widget.entry.locationName ?? '',
+    );
+    _contentFocusNode = FocusNode();
+    _locationFocusNode = FocusNode();
+    _draftImages = List<String>.of(widget.entry.images);
+  }
+
+  @override
+  void dispose() {
+    if (_contentFocusNode.hasFocus || _locationFocusNode.hasFocus) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+    _contentFocusNode.dispose();
+    _locationFocusNode.dispose();
+    _contentController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  void _close([_DiaryEditResult? result]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(result);
+  }
+
+  Future<void> _addImage() async {
+    final image = await widget.pickImage();
+    if (image == null || !mounted) return;
+    setState(() => _draftImages.add(image));
+  }
+
+  void _save() {
+    _close(
+      _DiaryEditResult(
+        content: _contentController.text,
+        images: _draftImages,
+        locationName: _locationController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 540),
+        padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '编辑日记',
+                style: AppTypography.subtitle.copyWith(fontSize: 32),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _contentController,
+                focusNode: _contentFocusNode,
+                maxLines: null,
+                minLines: 6,
+                style: AppTypography.body.copyWith(fontSize: 26),
+                decoration: InputDecoration(
+                  hintText: '今天发生了什么...',
+                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 24),
+                ),
+              ),
+              const SizedBox(height: 22),
+              _ImagePreviewWrap(
+                images: _draftImages,
+                editable: true,
+                onRemove: (index) =>
+                    setState(() => _draftImages.removeAt(index)),
+              ),
+              const SizedBox(height: 22),
+              TextField(
+                controller: _locationController,
+                focusNode: _locationFocusNode,
+                style: AppTypography.body.copyWith(fontSize: 23),
+                decoration: InputDecoration(
+                  prefixIcon: Icon(
+                    Icons.place_outlined,
+                    color: AppColors.navSelected,
+                    size: 30,
+                  ),
+                  hintText: '添加更详细的位置',
+                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                    ),
+                    onPressed: _addImage,
+                    icon: const Icon(Icons.photo_library_outlined, size: 28),
+                    label: const Text('添加图片', style: TextStyle(fontSize: 22)),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 16,
+                      ),
+                    ),
+                    onPressed: _close,
+                    child: const Text('取消', style: TextStyle(fontSize: 22)),
+                  ),
+                  const SizedBox(width: 14),
+                  FilledButton.icon(
+                    style: AppTheme.primaryFilledButtonStyle.copyWith(
+                      padding: WidgetStateProperty.all(
+                        const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 18,
+                        ),
+                      ),
+                    ),
+                    onPressed: _save,
+                    icon: const Icon(Icons.save_outlined, size: 28),
+                    label: const Text('保存', style: TextStyle(fontSize: 22)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationEditorDialog extends StatefulWidget {
+  final String initialLocationName;
+  final Future<String?> Function() resolveCurrentLocation;
+
+  const _LocationEditorDialog({
+    required this.initialLocationName,
+    required this.resolveCurrentLocation,
+  });
+
+  @override
+  State<_LocationEditorDialog> createState() => _LocationEditorDialogState();
+}
+
+class _LocationEditorDialogState extends State<_LocationEditorDialog> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  bool _locating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialLocationName);
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    if (_focusNode.hasFocus) _focusNode.unfocus();
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close([String? value]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(value);
+  }
+
+  Future<void> _resolveLocation() async {
+    setState(() => _locating = true);
+    final location = await widget.resolveCurrentLocation();
+    if (!mounted) return;
+    setState(() {
+      _locating = false;
+      if (location != null) _controller.text = location;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.card,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('记录位置', style: AppTypography.subtitle.copyWith(fontSize: 32)),
+            const SizedBox(height: 22),
+            TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              style: AppTypography.body.copyWith(fontSize: 24),
+              decoration: InputDecoration(
+                prefixIcon: Icon(
+                  Icons.place_outlined,
+                  color: AppColors.navSelected,
+                  size: 30,
+                ),
+                hintText: '国家 / 城市 / 区县 / 街道',
+                hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      foregroundColor: AppColors.navSelected,
+                      side: BorderSide(color: AppColors.divider),
+                    ),
+                    onPressed: _locating ? null : _resolveLocation,
+                    icon: Icon(
+                      _locating
+                          ? Icons.hourglass_empty_rounded
+                          : Icons.my_location_outlined,
+                      size: 28,
+                    ),
+                    label: Text(
+                      _locating ? '定位中' : '获取定位',
+                      style: const TextStyle(fontSize: 22),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                FilledButton.icon(
+                  style: AppTheme.primaryFilledButtonStyle.copyWith(
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                    ),
+                  ),
+                  onPressed: () => _close(_controller.text.trim()),
+                  icon: const Icon(Icons.check_rounded, size: 28),
+                  label: const Text('确定', style: TextStyle(fontSize: 22)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 单日日记内容
