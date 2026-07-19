@@ -23,7 +23,10 @@ class AppRouter {
                   if (i == 2) {
                     StatisticsPageNavigation.requestMainPage();
                   }
-                  shell.goBranch(i, initialLocation: i == shell.currentIndex);
+                  shell.goBranch(
+                    i,
+                    initialLocation: i == 0 || i == shell.currentIndex,
+                  );
                 },
                 onSettingsTap: () => showSettingsDialog(context),
               ),

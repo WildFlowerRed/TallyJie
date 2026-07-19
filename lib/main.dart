@@ -24,7 +24,11 @@ class TallyJieApp extends StatelessWidget {
           theme: AppTheme.light,
           routerConfig: AppRouter.router,
           builder: (context, child) {
-            return _AppUiScale(scale: 0.9, child: child ?? const SizedBox());
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: _AppUiScale(scale: 0.9, child: child ?? const SizedBox()),
+            );
           },
         );
       },

@@ -374,40 +374,6 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                 children: [
                   const SizedBox(height: 22),
 
-                  // 日期时间
-                  GestureDetector(
-                    onTap: () async {
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedTime,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (!context.mounted || d == null) return;
-
-                      final t = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.fromDateTime(_selectedTime),
-                      );
-                      if (!mounted || t == null) return;
-
-                      setState(() {
-                        _selectedTime = DateTime(
-                          d.year,
-                          d.month,
-                          d.day,
-                          t.hour,
-                          t.minute,
-                        );
-                      });
-                    },
-                    child: Text(
-                      DateFormat('yyyy年M月d日 HH:mm').format(_selectedTime),
-                      style: AppTypography.caption.copyWith(fontSize: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-
                   // 金额
                   GestureDetector(
                     onTap: _showAmountKeypad,
@@ -445,7 +411,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                           onTap: () => _switchType(true),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: _TypeBtn(
                           label: '收入',
@@ -918,7 +884,7 @@ class _TypeBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 22),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: fillColor,
           borderRadius: AppRadius.md,
@@ -932,7 +898,7 @@ class _TypeBtn extends StatelessWidget {
             label,
             style: AppTypography.body.copyWith(
               color: AppColors.white,
-              fontSize: 22,
+              fontSize: 19,
               fontWeight: FontWeight.w600,
             ),
           ),
