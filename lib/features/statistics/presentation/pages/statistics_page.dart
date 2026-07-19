@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
@@ -94,16 +95,19 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   late DateTime _reportMonth;
   List<_BillRecord> _records = [];
   bool _loadingRecords = true;
+  MonthlyBudgetDto? _budget;
+  bool _loadingBudget = true;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _reportMonth = DateTime(now.year, now.month);
-    _loadRecords();
+    _loadPageData();
     LocalDataApi.instance.transactionsVersion.addListener(
       _handleTransactionsChanged,
     );
+    LocalDataApi.instance.budgetVersion.addListener(_handleBudgetChanged);
     StatisticsPageNavigation._mainPageRequests.addListener(_showMainPage);
   }
 
@@ -112,20 +116,37 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     LocalDataApi.instance.transactionsVersion.removeListener(
       _handleTransactionsChanged,
     );
+    LocalDataApi.instance.budgetVersion.removeListener(_handleBudgetChanged);
     StatisticsPageNavigation._mainPageRequests.removeListener(_showMainPage);
     super.dispose();
   }
 
   void _handleTransactionsChanged() {
-    _loadRecords();
+    _loadPageData();
   }
 
-  Future<void> _loadRecords() async {
+  void _handleBudgetChanged() {
+    _loadBudget();
+  }
+
+  Future<void> _loadPageData() async {
     final transactions = await LocalDataApi.instance.listTransactions();
+    final budget = await LocalDataApi.instance.getBudget();
     if (!mounted) return;
     setState(() {
       _records = transactions.map(_BillRecord.fromDto).toList();
+      _budget = budget;
       _loadingRecords = false;
+      _loadingBudget = false;
+    });
+  }
+
+  Future<void> _loadBudget() async {
+    final budget = await LocalDataApi.instance.getBudget();
+    if (!mounted) return;
+    setState(() {
+      _budget = budget;
+      _loadingBudget = false;
     });
   }
 
@@ -288,6 +309,82 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     }
   }
 
+  Future<void> _openBudgetEditor() async {
+    final current = _budget?.budgetAmount;
+    final controller = TextEditingController(
+      text: current == null ? '' : _formatMoney(current),
+    );
+    final amount = await showDialog<double>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '编辑月预算',
+                style: AppTypography.subtitle.copyWith(fontSize: 26),
+              ),
+              const SizedBox(height: 22),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: AppTypography.body.copyWith(fontSize: 24),
+                decoration: InputDecoration(
+                  prefixText: '¥ ',
+                  hintText: '1000.00',
+                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('取消', style: TextStyle(fontSize: 18)),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    style: AppTheme.primaryFilledButtonStyle,
+                    onPressed: () {
+                      final value = double.tryParse(
+                        controller.text.replaceAll(',', '').trim(),
+                      );
+                      if (value == null || value < 0) return;
+                      Navigator.of(context).pop(value);
+                    },
+                    child: const Text('保存', style: TextStyle(fontSize: 18)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (amount == null) return;
+    await LocalDataApi.instance.setBudget(
+      month: DateTime.now(),
+      amount: amount,
+    );
+    await _loadBudget();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
@@ -329,6 +426,12 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                     expense: _monthlyExpense,
                   ),
                   const SizedBox(height: 22),
+                  _BudgetCard(
+                    budget: _budget,
+                    loading: _loadingBudget,
+                    onEdit: _openBudgetEditor,
+                  ),
+                  const SizedBox(height: 22),
                   _FilterToolbar(
                     billFilter: _billFilter,
                     timeFilter: _timeFilter,
@@ -346,6 +449,10 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                       query: _searchQuery,
                       onClear: () => setState(() => _searchQuery = ''),
                     ),
+                  ],
+                  if (_budget != null && _budget!.isOverBudget) ...[
+                    const SizedBox(height: 16),
+                    _BudgetWarningBar(overAmount: _budget!.overAmount),
                   ],
                   const SizedBox(height: 24),
                   Row(
@@ -377,12 +484,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                   else if (_filteredRecords.isEmpty)
                     const _EmptyBills()
                   else
-                    ..._filteredRecords.map(
-                      (record) => _TxnTile(
-                        record: record,
-                        onTap: () => _showBillDetail(record),
-                      ),
-                    ),
+                    ..._buildGroupedTransactionList(_filteredRecords),
                   const SizedBox(height: 52),
                 ],
               ),
@@ -391,6 +493,57 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
         );
       },
     );
+  }
+
+  List<Widget> _buildGroupedTransactionList(List<_BillRecord> records) {
+    final widgets = <Widget>[];
+    var currentKey = '';
+    var currentDayRecords = <_BillRecord>[];
+
+    void flushGroup() {
+      if (currentDayRecords.isEmpty) return;
+      final day = DateTime(
+        currentDayRecords.first.date.year,
+        currentDayRecords.first.date.month,
+        currentDayRecords.first.date.day,
+      );
+      final expenseTotal = currentDayRecords
+          .where((record) => !record.isIncome)
+          .fold(0.0, (sum, record) => sum + record.amount.abs());
+      final incomeTotal = currentDayRecords
+          .where((record) => record.isIncome)
+          .fold(0.0, (sum, record) => sum + record.amount.abs());
+      final showIncome = _billFilter == _BillTypeFilter.income;
+
+      widgets.add(
+        _BillDateHeader(
+          date: day,
+          label: showIncome ? '收入' : '支出',
+          amount: showIncome ? incomeTotal : expenseTotal,
+        ),
+      );
+      widgets.addAll(
+        currentDayRecords.map(
+          (record) =>
+              _TxnTile(record: record, onTap: () => _showBillDetail(record)),
+        ),
+      );
+    }
+
+    for (final record in records) {
+      final key = _dateKey(record.date);
+      if (currentKey.isEmpty) {
+        currentKey = key;
+      }
+      if (key != currentKey) {
+        flushGroup();
+        currentKey = key;
+        currentDayRecords = [];
+      }
+      currentDayRecords.add(record);
+    }
+    flushGroup();
+    return widgets;
   }
 }
 
@@ -726,6 +879,319 @@ class _MiniStat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BudgetCard extends StatelessWidget {
+  final MonthlyBudgetDto? budget;
+  final bool loading;
+  final VoidCallback onEdit;
+
+  const _BudgetCard({
+    required this.budget,
+    required this.loading,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final budgetAmount = budget?.budgetAmount;
+    final spent = budget?.spentAmount ?? 0;
+    final isSet = budgetAmount != null;
+    final remaining = budget?.remaining;
+    final isOver = budget?.isOverBudget ?? false;
+    final progressColor = isOver ? AppColors.expense : AppColors.income;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '${now.month.toString().padLeft(2, '0')}月总预算',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: onEdit,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    '编辑',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.navSelected,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: loading
+                    ? Text(
+                        '预算加载中',
+                        style: AppTypography.subtitle.copyWith(fontSize: 25),
+                      )
+                    : Text(
+                        isSet
+                            ? '剩余预算：${_formatSignedCurrency(remaining ?? 0)}'
+                            : '未设置预算',
+                        style: AppTypography.subtitle.copyWith(
+                          color: isOver ? AppColors.expense : AppColors.text,
+                          fontSize: 25,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 16),
+              _BudgetRing(
+                progress: budget?.progress ?? 0,
+                color: progressColor,
+                isOver: isOver,
+                isSet: isSet,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _BudgetMiniValue(
+                  label: '本月预算',
+                  value: isSet ? _formatCurrency(budgetAmount) : '未设置',
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: _BudgetMiniValue(
+                  label: '本月支出',
+                  value: _formatCurrency(spent),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetMiniValue extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _BudgetMiniValue({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.62),
+        borderRadius: AppRadius.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.text,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetRing extends StatelessWidget {
+  final double progress;
+  final Color color;
+  final bool isOver;
+  final bool isSet;
+
+  const _BudgetRing({
+    required this.progress,
+    required this.color,
+    required this.isOver,
+    required this.isSet,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final displayProgress = isOver ? 1.0 : progress;
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: CustomPaint(
+        painter: _BudgetRingPainter(progress: displayProgress, color: color),
+        child: Center(
+          child: Text(
+            isSet ? '${(displayProgress * 100).round()}%' : '--',
+            style: AppTypography.caption.copyWith(
+              color: isSet ? color : AppColors.textHint,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetRingPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  const _BudgetRingPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = 6.0;
+    final rect = Offset.zero & size;
+    final basePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.divider.withValues(alpha: 0.76);
+    final activePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+
+    canvas.drawArc(rect.deflate(stroke / 2), 0, math.pi * 2, false, basePaint);
+    canvas.drawArc(
+      rect.deflate(stroke / 2),
+      -math.pi / 2,
+      math.pi * 2 * progress.clamp(0.0, 1.0),
+      false,
+      activePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BudgetRingPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _BudgetWarningBar extends StatelessWidget {
+  final double overAmount;
+
+  const _BudgetWarningBar({required this.overAmount});
+
+  @override
+  Widget build(BuildContext context) {
+    const warningColor = Color(0xFFD32F2F);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF0F0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: warningColor,
+            size: 24,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '今月已超预算 ¥${_formatMoney(overAmount)}元',
+              style: AppTypography.caption.copyWith(
+                color: warningColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BillDateHeader extends StatelessWidget {
+  final DateTime date;
+  final String label;
+  final double amount;
+
+  const _BillDateHeader({
+    required this.date,
+    required this.label,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+      child: Row(
+        children: [
+          Text(
+            '${date.month.toString().padLeft(2, '0')}月'
+            '${date.day.toString().padLeft(2, '0')}日',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            _weekdayLabel(date),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 17,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '$label：${_formatCompactAmount(amount)}',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 17,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1742,6 +2208,32 @@ double _monthTotal(List<_BillRecord> records, DateTime month, bool income) {
 
 bool _isSameMonth(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month;
+
+String _dateKey(DateTime date) {
+  return '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+}
+
+String _weekdayLabel(DateTime date) {
+  const labels = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+  return labels[date.weekday - 1];
+}
+
+String _formatCompactAmount(double value) {
+  final fixed = value.toStringAsFixed(2);
+  if (fixed.endsWith('.00')) return fixed.substring(0, fixed.length - 3);
+  if (fixed.endsWith('0')) return fixed.substring(0, fixed.length - 1);
+  return fixed;
+}
+
+String _formatMoney(double value) => NumberFormat('#,##0.00').format(value);
+
+String _formatCurrency(double value) => '¥${_formatMoney(value)}';
+
+String _formatSignedCurrency(double value) {
+  if (value < 0) return '-¥${_formatMoney(value.abs())}';
+  return _formatCurrency(value);
+}
 
 String _billFilterLabel(_BillTypeFilter filter) {
   switch (filter) {

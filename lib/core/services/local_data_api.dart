@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../database/database_helper.dart';
 
@@ -128,11 +129,48 @@ class CreateLedgerTransactionInput {
   });
 }
 
+class MonthlyBudgetDto {
+  final DateTime month;
+  final double? budgetAmount;
+  final double spentAmount;
+
+  const MonthlyBudgetDto({
+    required this.month,
+    required this.budgetAmount,
+    required this.spentAmount,
+  });
+
+  bool get isSet => budgetAmount != null;
+  double? get remaining =>
+      budgetAmount == null ? null : budgetAmount! - spentAmount;
+  bool get isOverBudget =>
+      budgetAmount != null && budgetAmount! > 0 && spentAmount > budgetAmount!;
+  double get overAmount => isOverBudget ? spentAmount - budgetAmount! : 0;
+  double get progress {
+    final budget = budgetAmount;
+    if (budget == null || budget <= 0) return 0;
+    return (spentAmount / budget).clamp(0.0, 1.0);
+  }
+}
+
+class BudgetCheckResult {
+  final bool isOverBudget;
+  final double overAmount;
+  final MonthlyBudgetDto budget;
+
+  const BudgetCheckResult({
+    required this.isOverBudget,
+    required this.overAmount,
+    required this.budget,
+  });
+}
+
 class LocalDataApi {
   LocalDataApi._();
 
   static final LocalDataApi instance = LocalDataApi._();
   final ValueNotifier<int> transactionsVersion = ValueNotifier<int>(0);
+  final ValueNotifier<int> budgetVersion = ValueNotifier<int>(0);
   final _memory = _MemoryStore();
 
   Future<List<LedgerCategoryDto>> listLedgerCategories({
@@ -169,6 +207,9 @@ class LocalDataApi {
         ? await _memory.createTransaction(input)
         : await _createSqliteTransaction(input);
     transactionsVersion.value++;
+    if (input.type == LedgerEntryType.expense) {
+      budgetVersion.value++;
+    }
     return id;
   }
 
@@ -200,6 +241,80 @@ class LocalDataApi {
       ORDER BY t.transaction_time DESC
     ''');
     return rows.map(LedgerTransactionDto.fromMap).toList();
+  }
+
+  /// /api/budget/get
+  Future<MonthlyBudgetDto> getBudget({DateTime? month}) async {
+    final targetMonth = _monthStart(month ?? DateTime.now());
+    if (kIsWeb) return _memory.getBudget(targetMonth);
+
+    final db = await DatabaseHelper().database;
+    final monthKey = _monthKey(targetMonth);
+    final budgetRows = await db.query(
+      'monthly_budgets',
+      where: 'budget_month = ? AND deleted_at IS NULL',
+      whereArgs: [monthKey],
+      limit: 1,
+    );
+    final expenseRows = await db.rawQuery(
+      '''
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM ledger_transactions
+      WHERE deleted_at IS NULL
+        AND type = ?
+        AND transaction_time >= ?
+        AND transaction_time < ?
+      ''',
+      [
+        LedgerEntryType.expense.name,
+        targetMonth.toIso8601String(),
+        DateTime(targetMonth.year, targetMonth.month + 1).toIso8601String(),
+      ],
+    );
+    return MonthlyBudgetDto(
+      month: targetMonth,
+      budgetAmount: budgetRows.isEmpty
+          ? null
+          : (budgetRows.first['amount'] as num).toDouble(),
+      spentAmount: ((expenseRows.first['total'] as num?) ?? 0).toDouble(),
+    );
+  }
+
+  /// /api/budget/set
+  Future<MonthlyBudgetDto> setBudget({
+    required DateTime month,
+    required double amount,
+  }) async {
+    final targetMonth = _monthStart(month);
+    if (kIsWeb) {
+      final budget = await _memory.setBudget(targetMonth, amount);
+      budgetVersion.value++;
+      return budget;
+    }
+
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now().toIso8601String();
+    await db.insert('monthly_budgets', {
+      'budget_month': _monthKey(targetMonth),
+      'amount': amount.abs(),
+      'currency': 'CNY',
+      'sync_status': 'local',
+      'created_at': now,
+      'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    final budget = await getBudget(month: targetMonth);
+    budgetVersion.value++;
+    return budget;
+  }
+
+  /// /api/budget/check
+  Future<BudgetCheckResult> checkBudget({DateTime? month}) async {
+    final budget = await getBudget(month: month);
+    return BudgetCheckResult(
+      isOverBudget: budget.isOverBudget,
+      overAmount: budget.overAmount,
+      budget: budget,
+    );
   }
 
   Future<int> _createSqliteTransaction(
@@ -246,6 +361,13 @@ class LocalDataApi {
     return 'tx_${now.replaceAll(RegExp(r'[^0-9]'), '')}_'
         '${DateTime.now().microsecondsSinceEpoch}';
   }
+}
+
+DateTime _monthStart(DateTime date) => DateTime(date.year, date.month);
+
+String _monthKey(DateTime date) {
+  final month = _monthStart(date);
+  return '${month.year}-${month.month.toString().padLeft(2, '0')}';
 }
 
 class LedgerIconCatalog {
@@ -298,6 +420,7 @@ class _MemoryStore {
   final List<LedgerCategoryDto> _categories = _seedCategories();
   final List<LedgerAccountDto> _accounts = _seedAccounts();
   final List<LedgerTransactionDto> _transactions = [];
+  final Map<String, double> _budgets = {};
   int _nextTransactionId = 1;
 
   List<LedgerCategoryDto> listCategories(LedgerEntryType type) {
@@ -332,6 +455,29 @@ class _MemoryStore {
   List<LedgerTransactionDto> listTransactions() {
     return List<LedgerTransactionDto>.of(_transactions)
       ..sort((a, b) => b.transactionTime.compareTo(a.transactionTime));
+  }
+
+  Future<MonthlyBudgetDto> getBudget(DateTime month) async {
+    final targetMonth = _monthStart(month);
+    final spent = _transactions
+        .where(
+          (item) =>
+              item.type == LedgerEntryType.expense &&
+              item.transactionTime.year == targetMonth.year &&
+              item.transactionTime.month == targetMonth.month,
+        )
+        .fold(0.0, (sum, item) => sum + item.amount.abs());
+    return MonthlyBudgetDto(
+      month: targetMonth,
+      budgetAmount: _budgets[_monthKey(targetMonth)],
+      spentAmount: spent,
+    );
+  }
+
+  Future<MonthlyBudgetDto> setBudget(DateTime month, double amount) async {
+    final targetMonth = _monthStart(month);
+    _budgets[_monthKey(targetMonth)] = amount.abs();
+    return getBudget(targetMonth);
   }
 
   static List<LedgerCategoryDto> _seedCategories() {

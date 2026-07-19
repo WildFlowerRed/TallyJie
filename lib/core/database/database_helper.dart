@@ -47,6 +47,10 @@ class DatabaseHelper {
       await _migrateLegacyDiary(db);
       await _migrateLegacyTransactions(db);
     }
+    if (oldVersion < 3) {
+      await _createMonthlyBudgetsTable(db);
+      await _createIndexes(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -231,6 +235,8 @@ class DatabaseHelper {
       )
     ''');
 
+    await _createMonthlyBudgetsTable(db);
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS backup_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -285,6 +291,28 @@ class DatabaseHelper {
       'CREATE INDEX IF NOT EXISTS idx_auto_detected_status '
       'ON auto_detected_bills(status)',
     );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_monthly_budget_month '
+      'ON monthly_budgets(budget_month)',
+    );
+  }
+
+  Future<void> _createMonthlyBudgetsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS monthly_budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        budget_month TEXT NOT NULL UNIQUE,
+        amount REAL NOT NULL,
+        currency TEXT DEFAULT 'CNY',
+        server_id TEXT UNIQUE,
+        sync_status TEXT DEFAULT 'local',
+        synced_at TEXT,
+        revision INTEGER DEFAULT 0,
+        deleted_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _seedReferenceData(Database db) async {

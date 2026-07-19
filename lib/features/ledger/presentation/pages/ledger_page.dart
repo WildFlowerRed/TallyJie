@@ -164,9 +164,12 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       return;
     }
     try {
+      final type = _isExpense
+          ? LedgerEntryType.expense
+          : LedgerEntryType.income;
       await LocalDataApi.instance.createLedgerTransaction(
         CreateLedgerTransactionInput(
-          type: _isExpense ? LedgerEntryType.expense : LedgerEntryType.income,
+          type: type,
           amount: double.parse(_amount),
           categoryId: _selectedCatId!,
           accountId: _selectedAccId!,
@@ -174,11 +177,18 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
           transactionTime: _selectedTime,
         ),
       );
+      final overBudget = type == LedgerEntryType.expense
+          ? await LocalDataApi.instance.checkBudget(month: _selectedTime)
+          : null;
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('账单已保存')));
       _reset();
+      if (overBudget != null && overBudget.isOverBudget) {
+        await _showBudgetWarningDialog(overBudget.overAmount);
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('账单已保存')));
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -195,6 +205,75 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       _noteCtrl.clear();
       _selectedTime = DateTime.now();
     });
+  }
+
+  Future<void> _showBudgetWarningDialog(double overAmount) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.expense,
+                    size: 32,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '今月消费已超预算',
+                    style: AppTypography.subtitle.copyWith(
+                      color: AppColors.expense,
+                      fontSize: 24,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '您本月的支出已超过预算，当前超出¥${_formatMoney(overAmount)}元，请注意控制消费',
+                textAlign: TextAlign.center,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 19,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 17),
+                  decoration: BoxDecoration(
+                    color: AppColors.expense,
+                    borderRadius: AppRadius.md,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '我知道了',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -405,6 +484,8 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
     );
   }
 }
+
+String _formatMoney(double value) => NumberFormat('#,##0.00').format(value);
 
 class _AmountKeypadSheet extends StatelessWidget {
   final String amount;
