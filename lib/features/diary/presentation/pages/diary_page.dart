@@ -515,8 +515,8 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
       weatherLabel: _weatherLabel,
       isToday: isToday,
       textController: isToday ? _textController : null,
-      onMoodTap: isToday ? _showMoodPicker : null,
-      onWeatherTap: isToday ? _showWeatherPicker : null,
+      onMoodTap: _showMoodPicker,
+      onWeatherTap: _showWeatherPicker,
       onAddImage: isToday ? _addImage : null,
       onLocationTap: isToday ? _openLocationEditor : null,
       onSave: isToday ? _saveTodayDiary : null,
@@ -539,6 +539,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
       valueListenable: AppColors.themeVersion,
       builder: (context, themeVersion, child) {
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           backgroundColor: AppColors.bg,
           body: Stack(
             children: [
@@ -948,14 +949,24 @@ class _DiaryContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final latestEntry = entries.isEmpty ? null : entries.first;
-    final shownMood = latestEntry?.moodIcon ?? mood;
-    final shownMoodLabel = latestEntry?.moodLabel ?? moodLabel;
-    final shownWeather = latestEntry?.weatherKey ?? weather;
-    final shownWeatherLabel = latestEntry?.weatherLabel ?? weatherLabel;
+    final shownMood = isToday ? mood : latestEntry?.moodIcon ?? mood;
+    final shownMoodLabel = isToday
+        ? moodLabel
+        : latestEntry?.moodLabel ?? moodLabel;
+    final shownWeather = isToday ? weather : latestEntry?.weatherKey ?? weather;
+    final shownWeatherLabel = isToday
+        ? weatherLabel
+        : latestEntry?.weatherLabel ?? weatherLabel;
 
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: EdgeInsets.fromLTRB(
+        18,
+        0,
+        18,
+        bottomInset > 0 ? bottomInset + 24 : 46,
+      ),
       child: Column(
         children: [
           Container(
@@ -971,7 +982,7 @@ class _DiaryContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Column(
@@ -1066,7 +1077,6 @@ class _DiaryContent extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 46),
         ],
       ),
     );
@@ -1349,7 +1359,7 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Column(
@@ -1407,8 +1417,6 @@ class _DiaryDetailPageState extends State<_DiaryDetailPage> {
                               const SizedBox(height: 28),
                               const Divider(height: 1),
                               const SizedBox(height: 24),
-                              const _DiaryMarkerIcon(),
-                              const SizedBox(height: 22),
                               _DiaryBodyText(_entry.content),
                               _ImagePreviewWrap(
                                 images: _entry.images,
@@ -1555,19 +1563,6 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DiaryMarkerIcon extends StatelessWidget {
-  const _DiaryMarkerIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Icon(
-      Icons.menu_book_outlined,
-      color: Color(0xFF3D2C1E),
-      size: 38,
     );
   }
 }
@@ -1816,9 +1811,11 @@ class _ImagePreviewWrapState extends State<_ImagePreviewWrap> {
   Widget _buildFoldedImageStack(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tileSize = (constraints.maxWidth - 92)
-            .clamp(130.0, _tileSize(context))
-            .toDouble();
+        final maxTileSize = _tileSize(context).clamp(82.0, 180.0).toDouble();
+        final availableTileSize = constraints.maxWidth.isFinite
+            ? constraints.maxWidth - 92
+            : maxTileSize;
+        final tileSize = availableTileSize.clamp(82.0, maxTileSize).toDouble();
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2011,7 +2008,18 @@ class _DiaryImagePreview extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) => _imageFallback(),
       );
     }
-    return _imageFallback();
+    return FutureBuilder(
+      future: XFile(path).readAsBytes(),
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null) return _imageFallback();
+        return Image.memory(
+          bytes,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => _imageFallback(),
+        );
+      },
+    );
   }
 
   Widget _imageFallback() {

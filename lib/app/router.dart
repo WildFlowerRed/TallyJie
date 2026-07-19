@@ -14,6 +14,7 @@ class AppRouter {
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => Scaffold(
+          resizeToAvoidBottomInset: false,
           body: Column(
             children: [
               CapsuleNavBar(

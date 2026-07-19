@@ -672,8 +672,8 @@ class _PopupPill<T> extends StatelessWidget {
         return options.map((option) {
           return PopupMenuItem<T>(
             value: option.value,
-            height: 42,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Padding(
@@ -682,7 +682,7 @@ class _PopupPill<T> extends StatelessWidget {
                   option.label,
                   style: AppTypography.caption.copyWith(
                     color: _primaryBlue,
-                    fontSize: 17,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -705,8 +705,8 @@ class _PopupPill<T> extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 18),
+            const SizedBox(width: 3),
+            const Icon(Icons.keyboard_arrow_down, size: 16),
           ],
         ),
       ),
@@ -740,9 +740,9 @@ class _ActionPill extends StatelessWidget {
             if (icon != null) ...[
               Transform.translate(
                 offset: const Offset(0, 1),
-                child: Icon(icon, size: 19, color: _primaryBlue),
+                child: Icon(icon, size: 17, color: _primaryBlue),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 3),
             ],
             Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
           ],
@@ -760,8 +760,8 @@ class _PillShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -772,7 +772,7 @@ class _PillShell extends StatelessWidget {
       child: DefaultTextStyle.merge(
         style: AppTypography.caption.copyWith(
           color: _primaryBlue,
-          fontSize: 17,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
         child: IconTheme(
