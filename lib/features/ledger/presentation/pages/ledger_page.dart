@@ -362,10 +362,10 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 22),
 
               // 日期时间
               GestureDetector(
@@ -396,10 +396,10 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                 },
                 child: Text(
                   DateFormat('yyyy年M月d日 HH:mm').format(_selectedTime),
-                  style: AppTypography.caption,
+                  style: AppTypography.caption.copyWith(fontSize: 18),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 26),
 
               // 金额
               GestureDetector(
@@ -412,17 +412,20 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                   ),
                   child: Text(
                     _amount.isEmpty ? '¥0.00' : '¥$_amount',
-                    style: AppTypography.amountLarge.copyWith(color: accent),
+                    style: AppTypography.amountLarge.copyWith(
+                      color: accent,
+                      fontSize: 64,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Container(
-                width: 40,
-                height: 2,
+                width: 58,
+                height: 3,
                 color: accent.withValues(alpha: 0.3),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               // 收支切换
               Row(
@@ -435,7 +438,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                       onTap: () => _switchType(true),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: _TypeBtn(
                       label: '收入',
@@ -446,46 +449,49 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               // 分类
               _SectionTitle(label: '分类'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               _ChipGrid(
                 items: _cats,
                 selectedId: _selectedCatId,
                 onSelect: (id) => setState(() => _selectedCatId = id),
                 selectedColor: accent,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
               // 账户
               _SectionTitle(label: '账户'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               _ChipGrid(
                 items: _accounts,
                 selectedId: _selectedAccId,
                 onSelect: (id) => setState(() => _selectedAccId = id),
                 selectedColor: AppColors.accent,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
               // 备注
               _SectionTitle(label: '备注'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               TextField(
                 controller: _noteCtrl,
-                style: AppTypography.body,
-                decoration: const InputDecoration(hintText: '例如：和朋友吃火锅'),
+                style: AppTypography.body.copyWith(fontSize: 21),
+                decoration: const InputDecoration(
+                  hintText: '例如：和朋友吃火锅',
+                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 20),
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
               // 凭证
               _SectionTitle(label: '消费凭证'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.symmetric(vertical: 30),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: AppRadius.md,
@@ -496,27 +502,28 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                   children: [
                     const Icon(
                       Icons.add_photo_alternate_outlined,
-                      size: 20,
+                      size: 30,
                       color: AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Text(
                       '添加凭证',
                       style: AppTypography.body.copyWith(
                         color: AppColors.textSecondary,
+                        fontSize: 21,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
               // 保存
               GestureDetector(
                 onTap: _save,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   decoration: BoxDecoration(
                     color: AppColors.text,
                     borderRadius: AppRadius.md,
@@ -526,13 +533,14 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                       '保存账单',
                       style: AppTypography.body.copyWith(
                         color: AppColors.white,
+                        fontSize: 22,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 52),
             ],
           ),
         ),
@@ -571,7 +579,7 @@ class _AmountKeypadSheet extends StatelessWidget {
       child: Container(
         height: height,
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 22),
         decoration: const BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -582,25 +590,28 @@ class _AmountKeypadSheet extends StatelessWidget {
           child: Column(
             children: [
               Container(
-                width: 42,
-                height: 4,
+                width: 54,
+                height: 5,
                 decoration: BoxDecoration(
                   color: AppColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
               Row(
                 children: [
-                  Text('输入金额', style: AppTypography.subtitle),
+                  Text(
+                    '输入金额',
+                    style: AppTypography.subtitle.copyWith(fontSize: 25),
+                  ),
                   const Spacer(),
                   GestureDetector(
                     onTap: onDone,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                        horizontal: 20,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.12),
@@ -610,6 +621,7 @@ class _AmountKeypadSheet extends StatelessWidget {
                         '完成',
                         style: AppTypography.caption.copyWith(
                           color: accent,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -617,12 +629,15 @@ class _AmountKeypadSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 amount.isEmpty ? '¥0.00' : '¥$amount',
-                style: AppTypography.amount.copyWith(color: accent),
+                style: AppTypography.amount.copyWith(
+                  color: accent,
+                  fontSize: 48,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Expanded(
                 child: Column(
                   children: keys.map((row) {
@@ -631,7 +646,7 @@ class _AmountKeypadSheet extends StatelessWidget {
                         children: row.map((key) {
                           return Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(7),
                               child: _KeypadButton(
                                 label: key,
                                 onTap: () => onKey(key),
@@ -671,7 +686,10 @@ class _KeypadButton extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w500),
+          style: AppTypography.subtitle.copyWith(
+            fontSize: 28,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -695,7 +713,7 @@ class _TypeBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 22),
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.1) : AppColors.surface,
           borderRadius: AppRadius.md,
@@ -708,6 +726,7 @@ class _TypeBtn extends StatelessWidget {
             label,
             style: AppTypography.body.copyWith(
               color: selected ? color : AppColors.textSecondary,
+              fontSize: 22,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -732,8 +751,8 @@ class _ChipGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 12,
+      runSpacing: 12,
       children: items.map((item) {
         final id = item['id'] as int;
         final sel = selectedId == id;
@@ -742,7 +761,7 @@ class _ChipGrid extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutQuart,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
               color: sel
                   ? selectedColor.withValues(alpha: 0.15)
@@ -759,13 +778,13 @@ class _ChipGrid extends StatelessWidget {
               children: [
                 Icon(
                   item['icon'] as IconData,
-                  size: 16,
+                  size: 22,
                   color: sel ? selectedColor : item['color'] as Color,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Text(
                   item['name'] as String,
-                  style: AppTypography.caption.copyWith(fontSize: 13),
+                  style: AppTypography.caption.copyWith(fontSize: 18),
                 ),
               ],
             ),
@@ -787,6 +806,7 @@ class _SectionTitle extends StatelessWidget {
         Text(
           label,
           style: AppTypography.caption.copyWith(
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: AppColors.text,
           ),

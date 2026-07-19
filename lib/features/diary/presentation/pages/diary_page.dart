@@ -242,8 +242,8 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
 
   Widget _buildNavHeader() {
     return Container(
-      height: 108,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+      height: 138,
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 14),
       child: Row(
         children: [
           // 上一天
@@ -256,12 +256,12 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
               Text(
                 AppStrings.navDiary,
                 style: AppTypography.title.copyWith(
-                  fontSize: 31,
+                  fontSize: 42,
                   fontWeight: FontWeight.w500,
                   height: 1.12,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               _HeaderDateHotspot(
                 date: _currentDate,
                 onTap: _showCalendarPicker,
@@ -271,7 +271,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
                 Text(
                   '已保存 $_savedTime',
                   style: AppTypography.caption.copyWith(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: AppColors.accent,
                   ),
                 ),
@@ -465,14 +465,14 @@ class _DiaryContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Column(
         children: [
           // 主卡片：日期作为页面内容的第一视觉层级
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.fromLTRB(26, 28, 26, 28),
             decoration: BoxDecoration(
               color: AppColors.card.withValues(alpha: 0.96),
               borderRadius: BorderRadius.circular(28),
@@ -492,16 +492,16 @@ class _DiaryContent extends StatelessWidget {
                           Text(
                             '${date.month} / ${date.day}',
                             style: AppTypography.date42.copyWith(
-                              fontSize: 40,
+                              fontSize: 58,
                               fontWeight: FontWeight.w300,
                               height: 1.05,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           Text(
                             _formatDiaryCardSubtitle(date),
                             style: AppTypography.caption.copyWith(
-                              fontSize: 16,
+                              fontSize: 20,
                               color: AppColors.textSecondary,
                             ),
                           ),
@@ -516,7 +516,7 @@ class _DiaryContent extends StatelessWidget {
                           background: AppColors.tagWarm,
                           onTap: onMoodTap,
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 18),
                         _IconBubble(
                           label: _weatherGlyph(weather, weatherLabel),
                           tooltip: weatherLabel,
@@ -528,33 +528,33 @@ class _DiaryContent extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 28),
                 const Divider(height: 1),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
                 // "今日想说" 标题
                 Row(
                   children: [
                     const _PenSvgIcon(),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 9),
                     Text(
                       '今日想说',
                       style: AppTypography.subtitle.copyWith(
-                        fontSize: 16,
+                        fontSize: 24,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 34),
 
                 // 编辑区
                 if (isCurrent && textController != null)
                   TextField(
                     controller: textController,
                     maxLines: null,
-                    minLines: 6,
-                    style: AppTypography.body,
+                    minLines: 7,
+                    style: AppTypography.body.copyWith(fontSize: 21),
                     onChanged: (_) => onTextChanged?.call(),
                     decoration: const InputDecoration(
                       hintText: '今天发生了什么...',
@@ -566,14 +566,21 @@ class _DiaryContent extends StatelessWidget {
                       focusedErrorBorder: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       filled: false,
+                      hintStyle: TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 21,
+                      ),
                     ),
                   )
                 else
                   Text(
                     content.isEmpty ? '空白日记' : content,
                     style: content.isEmpty
-                        ? AppTypography.body.copyWith(color: AppColors.textHint)
-                        : AppTypography.body,
+                        ? AppTypography.body.copyWith(
+                            color: AppColors.textHint,
+                            fontSize: 21,
+                          )
+                        : AppTypography.body.copyWith(fontSize: 21),
                   ),
 
                 // 图片区
@@ -636,12 +643,12 @@ class _DiaryContent extends StatelessWidget {
           // 添加图片按钮
           if (isCurrent)
             Padding(
-              padding: const EdgeInsets.only(top: 16, bottom: 40),
+              padding: const EdgeInsets.only(top: 20, bottom: 46),
               child: GestureDetector(
                 onTap: onAddImage,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 22),
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: AppRadius.md,
@@ -652,14 +659,15 @@ class _DiaryContent extends StatelessWidget {
                     children: [
                       const Icon(
                         Icons.photo_library_outlined,
-                        size: 20,
+                        size: 28,
                         color: AppColors.textSecondary,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Text(
                         '添加图片',
                         style: AppTypography.body.copyWith(
                           color: AppColors.textSecondary,
+                          fontSize: 20,
                         ),
                       ),
                     ],
@@ -708,7 +716,7 @@ class _HeaderDateHotspot extends StatelessWidget {
         child: Text(
           '$prefix${_formatDiaryHeaderDate(date)}',
           style: AppTypography.caption.copyWith(
-            fontSize: 16,
+            fontSize: 21,
             color: AppColors.textSecondary,
           ),
         ),
@@ -722,13 +730,15 @@ class _PenSvgIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: const Size(16, 16), painter: _PenSvgIconPainter());
+    return CustomPaint(size: const Size(22, 22), painter: _PenSvgIconPainter());
   }
 }
 
 class _PenSvgIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 16, size.height / 16);
     final paint = Paint()
       ..color = const Color(0xFF7F8C8D)
       ..strokeWidth = 1.6
@@ -747,6 +757,7 @@ class _PenSvgIconPainter extends CustomPainter {
     canvas.drawPath(body, paint);
     canvas.drawLine(const Offset(9.8, 4.0), const Offset(12.9, 7.1), paint);
     canvas.drawLine(const Offset(11.2, 2.6), const Offset(13.4, 4.8), paint);
+    canvas.restore();
   }
 
   @override
@@ -1667,15 +1678,15 @@ class _IconBubble extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 48,
-          height: 48,
+          width: 66,
+          height: 66,
           decoration: BoxDecoration(
             color: background.withValues(alpha: 0.72),
             shape: BoxShape.circle,
             boxShadow: const [AppShadows.card],
           ),
           alignment: Alignment.center,
-          child: Text(label, style: const TextStyle(fontSize: 24)),
+          child: Text(label, style: const TextStyle(fontSize: 32)),
         ),
       ),
     );
@@ -1692,14 +1703,14 @@ class _CircleBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 52,
-        height: 52,
+        width: 68,
+        height: 68,
         decoration: BoxDecoration(
           color: AppColors.card,
           shape: BoxShape.circle,
           boxShadow: const [AppShadows.card],
         ),
-        child: Icon(icon, size: 28, color: AppColors.text),
+        child: Icon(icon, size: 38, color: AppColors.text),
       ),
     );
   }

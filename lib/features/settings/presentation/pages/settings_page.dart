@@ -60,9 +60,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           color: Colors.transparent,
           child: Container(
             width: double.infinity,
-            constraints: const BoxConstraints(maxWidth: 430),
+            constraints: const BoxConstraints(maxWidth: 520),
             margin: const EdgeInsets.symmetric(horizontal: 18),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            padding: const EdgeInsets.fromLTRB(26, 24, 26, 26),
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(28),
@@ -76,17 +76,20 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 children: [
                   Row(
                     children: [
-                      Text('设置', style: AppTypography.subtitle),
+                      Text(
+                        '设置',
+                        style: AppTypography.subtitle.copyWith(fontSize: 26),
+                      ),
                       const Spacer(),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close, size: 28),
                         color: AppColors.navUnselected,
                         visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 18),
                   _SectionCard(
                     icon: Icons.palette_outlined,
                     title: '主题设置',
@@ -101,12 +104,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                             },
                           ),
                           if (i != _themes.length - 1)
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
                         ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 18),
                   _SectionCard(
                     icon: Icons.file_download_outlined,
                     title: '数据导出',
@@ -117,7 +120,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                       onTap: () => _setFileStatus('已选择导出位置，等待后端打包 ZIP'),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 18),
                   _SectionCard(
                     icon: Icons.file_upload_outlined,
                     title: '数据导入',
@@ -129,12 +132,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                     ),
                   ),
                   if (_fileStatus != null) ...[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
@@ -144,6 +147,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         _fileStatus!,
                         style: AppTypography.caption.copyWith(
                           color: AppColors.text,
+                          fontSize: 18,
                         ),
                       ),
                     ),
@@ -173,7 +177,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.bg,
         borderRadius: AppRadius.lg,
@@ -184,18 +188,18 @@ class _SectionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 19, color: AppColors.text),
-              const SizedBox(width: 8),
+              Icon(icon, size: 26, color: AppColors.text),
+              const SizedBox(width: 12),
               Text(
                 title,
                 style: AppTypography.body.copyWith(
-                  fontSize: 15,
+                  fontSize: 21,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           child,
         ],
       ),
@@ -222,8 +226,8 @@ class _ThemeTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutQuart,
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 62,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: selected ? AppColors.text : AppColors.card,
           borderRadius: AppRadius.md,
@@ -234,8 +238,8 @@ class _ThemeTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
                 color: option.background,
                 borderRadius: BorderRadius.circular(8),
@@ -243,27 +247,27 @@ class _ThemeTile extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Container(
-                width: 10,
-                height: 10,
+                width: 14,
+                height: 14,
                 decoration: BoxDecoration(
                   color: option.accent,
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 option.label,
                 style: AppTypography.body.copyWith(
-                  fontSize: 14,
+                  fontSize: 20,
                   color: selected ? AppColors.white : AppColors.text,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ),
             if (selected)
-              const Icon(Icons.check, size: 18, color: AppColors.white),
+              const Icon(Icons.check, size: 25, color: AppColors.white),
           ],
         ),
       ),
@@ -292,19 +296,19 @@ class _FileAction extends StatelessWidget {
         Text(
           title,
           style: AppTypography.body.copyWith(
-            fontSize: 14,
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(subtitle, style: AppTypography.caption),
-        const SizedBox(height: 12),
+        const SizedBox(height: 7),
+        Text(subtitle, style: AppTypography.caption.copyWith(fontSize: 17)),
+        const SizedBox(height: 16),
         GestureDetector(
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 42,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 58,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             decoration: BoxDecoration(
               color: AppColors.text,
               borderRadius: AppRadius.md,
@@ -316,14 +320,14 @@ class _FileAction extends StatelessWidget {
                   buttonLabel,
                   style: AppTypography.body.copyWith(
                     color: AppColors.white,
-                    fontSize: 14,
+                    fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 const Icon(
                   Icons.folder_open_outlined,
-                  size: 18,
+                  size: 25,
                   color: AppColors.white,
                 ),
               ],

@@ -18,8 +18,12 @@ class AppRouter {
             children: [
               CapsuleNavBar(
                 selectedIndex: shell.currentIndex,
-                onTap: (i) =>
-                    shell.goBranch(i, initialLocation: i == shell.currentIndex),
+                onTap: (i) {
+                  if (i == 2) {
+                    StatisticsPageNavigation.requestMainPage();
+                  }
+                  shell.goBranch(i, initialLocation: i == shell.currentIndex);
+                },
                 onSettingsTap: () => showSettingsDialog(context),
               ),
               Expanded(

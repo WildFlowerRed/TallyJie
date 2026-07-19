@@ -31,25 +31,25 @@ class CapsuleNavBar extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          padding: const EdgeInsets.fromLTRB(18, 24, 18, 14),
           child: Column(
             children: [
               Align(
                 alignment: Alignment.centerRight,
                 child: _SettingsButton(onTap: onSettingsTap),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
               Center(
                 child: Container(
-                  height: 58,
-                  constraints: const BoxConstraints(maxWidth: 430),
+                  height: 74,
+                  constraints: const BoxConstraints(maxWidth: 520),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
+                    horizontal: 10,
+                    vertical: 9,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.card.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(29),
+                    borderRadius: BorderRadius.circular(37),
                     border: Border.all(
                       color: AppColors.white.withValues(alpha: 0.72),
                     ),
@@ -92,11 +92,11 @@ class _SettingsButton extends StatelessWidget {
         duration: AppDurations.short,
         curve: AppTheme.easeOutQuart,
         child: SizedBox(
-          width: 40,
-          height: 40,
+          width: 56,
+          height: 56,
           child: Icon(
             Icons.settings_outlined,
-            size: 23,
+            size: 30,
             color: AppColors.navUnselected,
           ),
         ),
@@ -134,11 +134,11 @@ class _NavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: AppDurations.medium,
           curve: AppTheme.easeOutQuart,
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: selected ? AppColors.navSelected : Colors.transparent,
-            borderRadius: BorderRadius.circular(21),
+            borderRadius: BorderRadius.circular(28),
           ),
           child: FittedBox(
             fit: BoxFit.scaleDown,
@@ -147,16 +147,16 @@ class _NavItem extends StatelessWidget {
               children: [
                 Icon(
                   tab.icon,
-                  size: 21,
+                  size: 27,
                   color: selected ? AppColors.navText : AppColors.text,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 AnimatedDefaultTextStyle(
                   duration: AppDurations.short,
                   curve: AppTheme.easeOutQuart,
                   style: AppTypography.navLabel.copyWith(
                     color: selected ? AppColors.navText : AppColors.text,
-                    fontSize: 15,
+                    fontSize: 19,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                   child: Text(tab.label),
