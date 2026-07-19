@@ -22,6 +22,9 @@ dependencies:
   flutter_animate: ^4.5.2
   geolocator: ^14.0.3
   geocoding: ^5.0.0
+  archive: ^4.0.7
+  file_selector: ^1.0.3
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

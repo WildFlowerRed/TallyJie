@@ -1,5 +1,10 @@
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
+import 'package:file_selector/file_selector.dart' show XFile;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/database_helper.dart';
@@ -190,6 +195,36 @@ class BudgetCheckResult {
     required this.isOverBudget,
     required this.overAmount,
     required this.budget,
+  });
+}
+
+class BackupPackageDto {
+  final String fileName;
+  final Uint8List bytes;
+  final int fileSize;
+  final DateTime createdAt;
+  final int transactionCount;
+  final int diaryCount;
+
+  const BackupPackageDto({
+    required this.fileName,
+    required this.bytes,
+    required this.fileSize,
+    required this.createdAt,
+    required this.transactionCount,
+    required this.diaryCount,
+  });
+}
+
+class BackupImportResult {
+  final int transactionCount;
+  final int diaryCount;
+  final int budgetCount;
+
+  const BackupImportResult({
+    required this.transactionCount,
+    required this.diaryCount,
+    required this.budgetCount,
   });
 }
 
@@ -432,6 +467,107 @@ class LocalDataApi {
     );
   }
 
+  /// /api/backup/export
+  Future<BackupPackageDto> exportBackupPackage() async {
+    final createdAt = DateTime.now();
+    final tables = kIsWeb
+        ? _memory.exportTables()
+        : await _exportSqliteTables();
+    final transactionCount =
+        (tables['ledger_transactions'] as List? ?? const []).length;
+    final diaryCount = (tables['diary_entries'] as List? ?? const []).length;
+    final assetFiles = await _collectBackupAssetFiles(tables);
+    final payload = {
+      'schema': 'tallyjie.backup.v1',
+      'app': 'TallyJie',
+      'created_at': createdAt.toIso8601String(),
+      'files': assetFiles
+          .map(
+            (file) => {
+              'original_path': file.originalPath,
+              'archive_path': file.archivePath,
+              'file_name': file.fileName,
+            },
+          )
+          .toList(),
+      'tables': tables,
+    };
+    final jsonBytes = utf8.encode(
+      const JsonEncoder.withIndent('  ').convert(payload),
+    );
+    final archive = Archive();
+    for (final file in assetFiles) {
+      archive.addFile(
+        ArchiveFile(file.archivePath, file.bytes.length, file.bytes),
+      );
+    }
+    archive.addFile(
+      ArchiveFile('tallyjie_backup.json', jsonBytes.length, jsonBytes),
+    );
+    final zipBytes = Uint8List.fromList(ZipEncoder().encodeBytes(archive));
+    final fileName =
+        'TallyJie_backup_${createdAt.year}${createdAt.month.toString().padLeft(2, '0')}'
+        '${createdAt.day.toString().padLeft(2, '0')}_'
+        '${createdAt.hour.toString().padLeft(2, '0')}'
+        '${createdAt.minute.toString().padLeft(2, '0')}.zip';
+
+    if (!kIsWeb) {
+      await _insertBackupRecord(
+        type: 'export',
+        filePath: fileName,
+        fileName: fileName,
+        fileSize: zipBytes.length,
+        status: 'success',
+      );
+    }
+
+    return BackupPackageDto(
+      fileName: fileName,
+      bytes: zipBytes,
+      fileSize: zipBytes.length,
+      createdAt: createdAt,
+      transactionCount: transactionCount,
+      diaryCount: diaryCount,
+    );
+  }
+
+  /// /api/backup/import
+  Future<BackupImportResult> importBackupPackage(
+    Uint8List bytes, {
+    String? fileName,
+  }) async {
+    final decoded = _decodeBackupPayload(bytes);
+    final payload = decoded.payload;
+    if (payload['schema'] != 'tallyjie.backup.v1') {
+      throw FormatException('不是有效的 TallyJie 备份文件');
+    }
+    if (!kIsWeb) {
+      await _restoreBackupFiles(payload, decoded.archiveFiles);
+    }
+    final tables = (payload['tables'] as Map).map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+
+    final result = kIsWeb
+        ? _memory.importTables(tables)
+        : await _importSqliteTables(tables);
+
+    transactionsVersion.value++;
+    budgetVersion.value++;
+    diaryVersion.value++;
+
+    if (!kIsWeb) {
+      await _insertBackupRecord(
+        type: 'import',
+        filePath: fileName ?? 'local',
+        fileName: fileName ?? 'TallyJie_backup.zip',
+        fileSize: bytes.length,
+        status: 'success',
+      );
+    }
+    return result;
+  }
+
   Future<List<DateTime>> listDiaryEntryDates() async {
     if (kIsWeb) return _memory.listDiaryEntryDates();
 
@@ -537,6 +673,74 @@ class LocalDataApi {
       whereArgs: [id],
     );
     diaryVersion.value++;
+  }
+
+  Future<Map<String, List<Map<String, Object?>>>> _exportSqliteTables() async {
+    final db = await DatabaseHelper().database;
+    final result = <String, List<Map<String, Object?>>>{};
+    for (final table in _backupTableNames) {
+      result[table] = await db.query(table);
+    }
+    return result;
+  }
+
+  Future<BackupImportResult> _importSqliteTables(
+    Map<String, Object?> tables,
+  ) async {
+    final db = await DatabaseHelper().database;
+    final normalized = <String, List<Map<String, Object?>>>{};
+    for (final table in _backupTableNames) {
+      final rows = tables[table];
+      normalized[table] = rows is List
+          ? rows
+                .whereType<Map>()
+                .map(
+                  (row) => row.map(
+                    (key, value) => MapEntry(key.toString(), value as Object?),
+                  ),
+                )
+                .toList()
+          : <Map<String, Object?>>[];
+    }
+
+    await db.transaction((txn) async {
+      for (final table in _backupDeleteOrder) {
+        await txn.delete(table);
+      }
+      for (final table in _backupInsertOrder) {
+        for (final row in normalized[table] ?? const <Map<String, Object?>>[]) {
+          await txn.insert(
+            table,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+    });
+
+    return BackupImportResult(
+      transactionCount: normalized['ledger_transactions']?.length ?? 0,
+      diaryCount: normalized['diary_entries']?.length ?? 0,
+      budgetCount: normalized['monthly_budgets']?.length ?? 0,
+    );
+  }
+
+  Future<void> _insertBackupRecord({
+    required String type,
+    required String filePath,
+    required String fileName,
+    required int fileSize,
+    required String status,
+  }) async {
+    final db = await DatabaseHelper().database;
+    await db.insert('backup_records', {
+      'type': type,
+      'file_path': filePath,
+      'file_name': fileName,
+      'file_size': fileSize,
+      'status': status,
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<int> _createSqliteTransaction(
@@ -769,6 +973,176 @@ String _monthKey(DateTime date) {
   return '${month.year}-${month.month.toString().padLeft(2, '0')}';
 }
 
+const _backupTableNames = [
+  'theme_settings',
+  'diary_entries',
+  'diary_attachments',
+  'daily_tasks',
+  'ledger_categories',
+  'ledger_accounts',
+  'ledger_transactions',
+  'transaction_attachments',
+  'auto_detected_bills',
+  'monthly_budgets',
+  'app_settings',
+];
+
+const _backupDeleteOrder = [
+  'auto_detected_bills',
+  'transaction_attachments',
+  'ledger_transactions',
+  'diary_attachments',
+  'diary_entries',
+  'daily_tasks',
+  'monthly_budgets',
+  'ledger_categories',
+  'ledger_accounts',
+  'theme_settings',
+  'app_settings',
+];
+
+const _backupInsertOrder = [
+  'theme_settings',
+  'app_settings',
+  'ledger_categories',
+  'ledger_accounts',
+  'daily_tasks',
+  'diary_entries',
+  'diary_attachments',
+  'ledger_transactions',
+  'transaction_attachments',
+  'auto_detected_bills',
+  'monthly_budgets',
+];
+
+class _BackupAssetFile {
+  final String originalPath;
+  final String archivePath;
+  final String fileName;
+  final Uint8List bytes;
+
+  const _BackupAssetFile({
+    required this.originalPath,
+    required this.archivePath,
+    required this.fileName,
+    required this.bytes,
+  });
+}
+
+class _DecodedBackupPayload {
+  final Map<String, Object?> payload;
+  final Map<String, Uint8List> archiveFiles;
+
+  const _DecodedBackupPayload({
+    required this.payload,
+    required this.archiveFiles,
+  });
+}
+
+Future<List<_BackupAssetFile>> _collectBackupAssetFiles(
+  Map<String, List<Map<String, Object?>>> tables,
+) async {
+  final paths = <String>{};
+  for (final table in ['diary_attachments', 'transaction_attachments']) {
+    for (final row in tables[table] ?? const <Map<String, Object?>>[]) {
+      final path = (row['file_path'] as String?)?.trim();
+      if (path != null && path.isNotEmpty) paths.add(path);
+    }
+  }
+
+  final result = <_BackupAssetFile>[];
+  var index = 0;
+  for (final path in paths) {
+    try {
+      final bytes = await XFile(path).readAsBytes();
+      if (bytes.isEmpty) continue;
+      final fileName = path.split(RegExp(r'[/\\]')).last;
+      final safeName = fileName.isEmpty ? 'asset_$index' : fileName;
+      result.add(
+        _BackupAssetFile(
+          originalPath: path,
+          archivePath: 'files/${index.toString().padLeft(4, '0')}_$safeName',
+          fileName: safeName,
+          bytes: bytes,
+        ),
+      );
+      index++;
+    } catch (_) {
+      // Ignore missing local files; the original path remains in the JSON.
+    }
+  }
+  return result;
+}
+
+Future<void> _restoreBackupFiles(
+  Map<String, Object?> payload,
+  Map<String, Uint8List> archiveFiles,
+) async {
+  final files = payload['files'];
+  if (files is! List || files.isEmpty || archiveFiles.isEmpty) return;
+
+  final supportDir = await getApplicationSupportDirectory();
+  final importedAt = DateTime.now().millisecondsSinceEpoch;
+  final pathMap = <String, String>{};
+
+  for (final item in files.whereType<Map>()) {
+    final originalPath = item['original_path'] as String?;
+    final archivePath = item['archive_path'] as String?;
+    final fileName = item['file_name'] as String? ?? 'asset';
+    if (originalPath == null || archivePath == null) continue;
+    final bytes = archiveFiles[archivePath];
+    if (bytes == null) continue;
+    final targetPath =
+        '${supportDir.path}/tallyjie_import_${importedAt}_${pathMap.length}_$fileName';
+    await XFile.fromData(bytes, name: fileName).saveTo(targetPath);
+    pathMap[originalPath] = targetPath;
+  }
+
+  if (pathMap.isEmpty) return;
+  final tables = payload['tables'];
+  if (tables is! Map) return;
+  for (final table in ['diary_attachments', 'transaction_attachments']) {
+    final rows = tables[table];
+    if (rows is! List) continue;
+    for (final row in rows.whereType<Map>()) {
+      final originalPath = row['file_path'] as String?;
+      final restoredPath = pathMap[originalPath];
+      if (restoredPath != null) row['file_path'] = restoredPath;
+    }
+  }
+}
+
+_DecodedBackupPayload _decodeBackupPayload(Uint8List bytes) {
+  String jsonText;
+  final archiveFiles = <String, Uint8List>{};
+  try {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final file = archive.files.firstWhere(
+      (file) =>
+          file.name.endsWith('tallyjie_backup.json') ||
+          file.name.endsWith('.json'),
+    );
+    for (final archiveFile in archive.files) {
+      if (archiveFile.isFile) {
+        archiveFiles[archiveFile.name] = archiveFile.content;
+      }
+    }
+    jsonText = utf8.decode(file.content);
+  } catch (_) {
+    jsonText = utf8.decode(bytes);
+  }
+  final decoded = jsonDecode(jsonText);
+  if (decoded is! Map) {
+    throw const FormatException('备份文件内容不完整');
+  }
+  return _DecodedBackupPayload(
+    payload: decoded.map(
+      (key, value) => MapEntry(key.toString(), value as Object?),
+    ),
+    archiveFiles: archiveFiles,
+  );
+}
+
 class LedgerIconCatalog {
   LedgerIconCatalog._();
 
@@ -985,6 +1359,290 @@ class _MemoryStore {
 
   Future<void> deleteDiaryEntryById(int id) async {
     _diaryEntries.removeWhere((entry) => entry.id == id);
+  }
+
+  Map<String, List<Map<String, Object?>>> exportTables() {
+    final now = DateTime.now().toIso8601String();
+    final transactionAttachments = <Map<String, Object?>>[];
+    for (final transaction in _transactions) {
+      for (var i = 0; i < transaction.receiptImagePaths.length; i++) {
+        final path = transaction.receiptImagePaths[i];
+        transactionAttachments.add({
+          'id': transactionAttachments.length + 1,
+          'transaction_id': transaction.id,
+          'file_path': path,
+          'file_name': path.split(RegExp(r'[/\\]')).last,
+          'file_type': 'image',
+          'file_size': 0,
+          'sync_status': 'local',
+          'revision': 0,
+          'created_at': now,
+        });
+      }
+    }
+
+    final diaryAttachments = <Map<String, Object?>>[];
+    for (final entry in _diaryEntries) {
+      for (var i = 0; i < entry.images.length; i++) {
+        final path = entry.images[i];
+        diaryAttachments.add({
+          'id': diaryAttachments.length + 1,
+          'diary_id': entry.id,
+          'type': 'image',
+          'file_path': path,
+          'file_name': path.split(RegExp(r'[/\\]')).last,
+          'file_size': 0,
+          'sort_order': i,
+          'sync_status': 'local',
+          'revision': 0,
+          'created_at': now,
+        });
+      }
+    }
+
+    return {
+      'theme_settings': const <Map<String, Object?>>[],
+      'app_settings': const <Map<String, Object?>>[],
+      'daily_tasks': const <Map<String, Object?>>[],
+      'auto_detected_bills': const <Map<String, Object?>>[],
+      'ledger_categories': _categories
+          .map(
+            (category) => {
+              'id': category.id,
+              'name': category.name,
+              'type': category.type.name,
+              'icon_code': category.iconCode,
+              'color_key': category.colorKey,
+              'sort_order': category.id,
+              'is_system': 1,
+              'is_enabled': 1,
+              'sync_status': 'local',
+              'revision': 0,
+              'created_at': now,
+              'updated_at': now,
+            },
+          )
+          .toList(),
+      'ledger_accounts': _accounts
+          .map(
+            (account) => {
+              'id': account.id,
+              'name': account.name,
+              'icon_code': account.iconCode,
+              'color_key': account.colorKey,
+              'balance': 0,
+              'sort_order': account.id,
+              'is_default': account.id == 1 ? 1 : 0,
+              'is_enabled': 1,
+              'sync_status': 'local',
+              'revision': 0,
+              'created_at': now,
+              'updated_at': now,
+            },
+          )
+          .toList(),
+      'ledger_transactions': _transactions
+          .map(
+            (transaction) => {
+              'id': transaction.id,
+              'transaction_no': transaction.transactionNo,
+              'type': transaction.type.name,
+              'amount': transaction.amount,
+              'category_id': transaction.categoryId,
+              'category_name': transaction.categoryName,
+              'account_id': transaction.accountId,
+              'account_name': transaction.accountName,
+              'note': transaction.note,
+              'transaction_time': transaction.transactionTime.toIso8601String(),
+              'source': transaction.source,
+              'sync_status': 'local',
+              'revision': 0,
+              'created_at': now,
+              'updated_at': now,
+            },
+          )
+          .toList(),
+      'transaction_attachments': transactionAttachments,
+      'diary_entries': _diaryEntries
+          .map(
+            (entry) => {
+              'id': entry.id,
+              'entry_date': _dateKey(entry.entryDate),
+              'title': '',
+              'content': entry.content,
+              'markdown_content': entry.content,
+              'mood_key': entry.moodKey,
+              'mood_label': entry.moodLabel,
+              'mood_icon': entry.moodIcon,
+              'weather_key': entry.weatherKey,
+              'weather_label': entry.weatherLabel,
+              'weather_icon': entry.weatherIcon,
+              'lunar_date': entry.lunarDate,
+              'location_name': entry.locationName,
+              'is_favorite': 0,
+              'sync_status': 'local',
+              'revision': 0,
+              'created_at': now,
+              'updated_at': now,
+            },
+          )
+          .toList(),
+      'diary_attachments': diaryAttachments,
+      'monthly_budgets': _budgets.entries
+          .map(
+            (entry) => {
+              'id': _budgets.keys.toList().indexOf(entry.key) + 1,
+              'budget_month': entry.key,
+              'amount': entry.value,
+              'currency': 'CNY',
+              'sync_status': 'local',
+              'revision': 0,
+              'created_at': now,
+              'updated_at': now,
+            },
+          )
+          .toList(),
+    };
+  }
+
+  BackupImportResult importTables(Map<String, Object?> tables) {
+    List<Map<String, Object?>> rows(String table) {
+      final value = tables[table];
+      if (value is! List) return const [];
+      return value
+          .whereType<Map>()
+          .map(
+            (row) => row.map(
+              (key, value) => MapEntry(key.toString(), value as Object?),
+            ),
+          )
+          .toList();
+    }
+
+    _categories
+      ..clear()
+      ..addAll(
+        rows('ledger_categories').map(
+          (row) => LedgerCategoryDto(
+            id: row['id'] as int,
+            name: row['name'] as String,
+            type: _typeFromName(row['type'] as String?),
+            iconCode: row['icon_code'] as String,
+            colorKey: row['color_key'] as String?,
+          ),
+        ),
+      );
+    if (_categories.isEmpty) _categories.addAll(_seedCategories());
+
+    _accounts
+      ..clear()
+      ..addAll(
+        rows('ledger_accounts').map(
+          (row) => LedgerAccountDto(
+            id: row['id'] as int,
+            name: row['name'] as String,
+            iconCode: row['icon_code'] as String,
+            colorKey: row['color_key'] as String?,
+          ),
+        ),
+      );
+    if (_accounts.isEmpty) _accounts.addAll(_seedAccounts());
+
+    final attachmentMap = <int, List<String>>{};
+    for (final row in rows('transaction_attachments')) {
+      final transactionId = row['transaction_id'] as int;
+      attachmentMap
+          .putIfAbsent(transactionId, () => [])
+          .add(row['file_path'] as String);
+    }
+
+    _transactions
+      ..clear()
+      ..addAll(
+        rows('ledger_transactions').map((row) {
+          final id = row['id'] as int;
+          final category = _categories.firstWhere(
+            (item) => item.id == row['category_id'],
+            orElse: () => _categories.first,
+          );
+          return LedgerTransactionDto(
+            id: id,
+            transactionNo: row['transaction_no'] as String,
+            type: _typeFromName(row['type'] as String?),
+            amount: (row['amount'] as num).toDouble(),
+            categoryId: row['category_id'] as int,
+            categoryName: row['category_name'] as String,
+            accountId: row['account_id'] as int,
+            accountName: row['account_name'] as String,
+            note: (row['note'] as String?) ?? '',
+            transactionTime:
+                DateTime.tryParse(row['transaction_time'] as String? ?? '') ??
+                DateTime.now(),
+            source: (row['source'] as String?) ?? 'manual',
+            iconCode: category.iconCode,
+            receiptCount: attachmentMap[id]?.length ?? 0,
+            receiptImagePaths: attachmentMap[id] ?? const [],
+          );
+        }),
+      );
+
+    final diaryAttachmentMap = <int, List<String>>{};
+    for (final row in rows('diary_attachments')) {
+      final diaryId = row['diary_id'] as int;
+      diaryAttachmentMap
+          .putIfAbsent(diaryId, () => [])
+          .add(row['file_path'] as String);
+    }
+
+    _diaryEntries
+      ..clear()
+      ..addAll(
+        rows('diary_entries').map((row) {
+          final id = row['id'] as int;
+          return DiaryEntryDto(
+            id: id,
+            entryDate:
+                DateTime.tryParse(row['entry_date'] as String? ?? '') ??
+                DateTime.now(),
+            content: (row['content'] as String?) ?? '',
+            moodKey: (row['mood_key'] as String?) ?? 'happy',
+            moodLabel: (row['mood_label'] as String?) ?? '开心',
+            moodIcon: (row['mood_icon'] as String?) ?? '😊',
+            weatherKey: (row['weather_key'] as String?) ?? 'sunny',
+            weatherLabel: (row['weather_label'] as String?) ?? '晴',
+            weatherIcon: (row['weather_icon'] as String?) ?? '☀️',
+            lunarDate: (row['lunar_date'] as String?) ?? '',
+            locationName: row['location_name'] as String?,
+            images: diaryAttachmentMap[id] ?? const [],
+          );
+        }),
+      );
+
+    _budgets
+      ..clear()
+      ..addEntries(
+        rows('monthly_budgets').map(
+          (row) => MapEntry(
+            row['budget_month'] as String,
+            (row['amount'] as num).toDouble(),
+          ),
+        ),
+      );
+
+    _nextTransactionId = _transactions.isEmpty
+        ? 1
+        : _transactions.map((item) => item.id).reduce((a, b) => a > b ? a : b) +
+              1;
+    _nextDiaryId = _diaryEntries.isEmpty
+        ? 1
+        : _diaryEntries.map((item) => item.id).reduce((a, b) => a > b ? a : b) +
+              1;
+
+    return BackupImportResult(
+      transactionCount: _transactions.length,
+      diaryCount: _diaryEntries.length,
+      budgetCount: _budgets.length,
+    );
   }
 
   static List<LedgerCategoryDto> _seedCategories() {

@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_font_scale.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../../../core/services/local_data_api.dart';
+
+const _backupChannel = MethodChannel('com.tallyjie.tallyjie/backup');
 
 Future<void> showSettingsDialog(BuildContext context) {
   return showGeneralDialog<void>(
@@ -42,9 +48,110 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   String _theme = AppColors.currentTheme;
   int _fontScaleIndex = AppFontScale.selectedIndex;
   String? _fileStatus;
+  bool _busy = false;
 
-  void _setFileStatus(String value) {
-    setState(() => _fileStatus = value);
+  Future<void> _exportData() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _fileStatus = '正在整理本地数据...';
+    });
+    try {
+      final backup = await LocalDataApi.instance.exportBackupPackage();
+      if (!mounted) return;
+      setState(() => _fileStatus = '请选择导出保存位置');
+
+      final file = XFile.fromData(
+        backup.bytes,
+        name: backup.fileName,
+        mimeType: 'application/zip',
+      );
+      final saved = await _saveBackupFile(backup, file);
+      if (!saved) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _fileStatus = '已取消导出';
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _fileStatus =
+            '导出成功：${backup.transactionCount} 条账单、${backup.diaryCount} 篇日记';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _fileStatus = '导出失败：$error';
+      });
+    }
+  }
+
+  Future<bool> _saveBackupFile(BackupPackageDto backup, XFile file) async {
+    final typeGroups = [
+      const XTypeGroup(label: 'TallyJie 备份包', extensions: ['zip']),
+    ];
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final uri = await _backupChannel.invokeMethod<String>('saveZip', {
+        'fileName': backup.fileName,
+        'bytes': backup.bytes,
+      });
+      return uri != null;
+    }
+
+    final location = await getSaveLocation(
+      suggestedName: backup.fileName,
+      acceptedTypeGroups: typeGroups,
+      confirmButtonText: '导出',
+      canCreateDirectories: true,
+    );
+    if (location == null) return false;
+    await file.saveTo(location.path);
+    return true;
+  }
+
+  Future<void> _importData() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _fileStatus = '请选择 TallyJie 备份包';
+    });
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'TallyJie 备份包', extensions: ['zip', 'json']),
+        ],
+        confirmButtonText: '导入',
+      );
+      if (file == null) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _fileStatus = '已取消导入';
+        });
+        return;
+      }
+      final result = await LocalDataApi.instance.importBackupPackage(
+        await file.readAsBytes(),
+        fileName: file.name,
+      );
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _fileStatus =
+            '导入成功：${result.transactionCount} 条账单、${result.diaryCount} 篇日记、${result.budgetCount} 条预算';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _fileStatus = '导入失败：$error';
+      });
+    }
   }
 
   @override
@@ -124,8 +231,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         child: _FileAction(
                           title: 'TallyJie_backup.zip',
                           subtitle: '选择手机本地位置保存 ZIP 备份包',
-                          buttonLabel: '选择导出位置',
-                          onTap: () => _setFileStatus('已选择导出位置，等待后端打包 ZIP'),
+                          buttonLabel: _busy ? '处理中' : '选择导出位置',
+                          onTap: _exportData,
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -135,8 +242,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         child: _FileAction(
                           title: '导入 ZIP 备份包',
                           subtitle: '从手机本地文件中选择 TallyJie 备份包',
-                          buttonLabel: '选择导入文件',
-                          onTap: () => _setFileStatus('已打开本地文件选择器，等待选择 ZIP'),
+                          buttonLabel: _busy ? '处理中' : '选择导入文件',
+                          onTap: _importData,
                         ),
                       ),
                       if (_fileStatus != null) ...[
