@@ -208,35 +208,40 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
   Widget build(BuildContext context) {
     // For now, use a simpler approach - show current day with navigation buttons
     // PageView with 3 pages (prev, current, next) would need more complex state management
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _PaperBackdrop()),
-          SafeArea(
-            child: Column(
-              children: [
-                // 导航栏 (~90px, 居中两行)
-                _buildNavHeader(),
-                // 内容区
-                Expanded(
-                  child: GestureDetector(
-                    onHorizontalDragEnd: (details) {
-                      if (details.primaryVelocity == null) return;
-                      if (details.primaryVelocity! > 300) {
-                        _goToPrevDay();
-                      } else if (details.primaryVelocity! < -300) {
-                        _goToNextDay();
-                      }
-                    },
-                    child: _buildDayPage(_currentDate),
-                  ),
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, themeVersion, child) {
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          body: Stack(
+            children: [
+              const Positioned.fill(child: _PaperBackdrop()),
+              SafeArea(
+                child: Column(
+                  children: [
+                    // 导航栏 (~90px, 居中两行)
+                    _buildNavHeader(),
+                    // 内容区
+                    Expanded(
+                      child: GestureDetector(
+                        onHorizontalDragEnd: (details) {
+                          if (details.primaryVelocity == null) return;
+                          if (details.primaryVelocity! > 300) {
+                            _goToPrevDay();
+                          } else if (details.primaryVelocity! < -300) {
+                            _goToNextDay();
+                          }
+                        },
+                        child: _buildDayPage(_currentDate),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -476,7 +481,7 @@ class _DiaryContent extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.card.withValues(alpha: 0.96),
               borderRadius: BorderRadius.circular(28),
-              boxShadow: const [AppShadows.card],
+              boxShadow: AppShadows.card,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,7 +561,7 @@ class _DiaryContent extends StatelessWidget {
                     minLines: 7,
                     style: AppTypography.body.copyWith(fontSize: 21),
                     onChanged: (_) => onTextChanged?.call(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: '今天发生了什么...',
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -600,7 +605,7 @@ class _DiaryContent extends StatelessWidget {
                               color: AppColors.surface,
                               borderRadius: AppRadius.md,
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Icon(
                                 Icons.image,
                                 color: AppColors.textHint,
@@ -657,7 +662,7 @@ class _DiaryContent extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.photo_library_outlined,
                         size: 28,
                         color: AppColors.textSecondary,
@@ -730,17 +735,24 @@ class _PenSvgIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: const Size(22, 22), painter: _PenSvgIconPainter());
+    return CustomPaint(
+      size: const Size(22, 22),
+      painter: _PenSvgIconPainter(color: AppColors.textSecondary),
+    );
   }
 }
 
 class _PenSvgIconPainter extends CustomPainter {
+  final Color color;
+
+  const _PenSvgIconPainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.scale(size.width / 16, size.height / 16);
     final paint = Paint()
-      ..color = const Color(0xFF7F8C8D)
+      ..color = color
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -761,7 +773,8 @@ class _PenSvgIconPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _PenSvgIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _CalendarDialog extends StatefulWidget {
@@ -840,7 +853,7 @@ class _CalendarDialogState extends State<_CalendarDialog> {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [AppShadows.card],
+          boxShadow: AppShadows.card,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1000,7 +1013,7 @@ class _CalendarDropdown<T> extends StatelessWidget {
           value: value,
           isDense: true,
           borderRadius: AppRadius.md,
-          icon: const Icon(
+          icon: Icon(
             Icons.keyboard_arrow_down,
             size: 18,
             color: AppColors.textSecondary,
@@ -1080,7 +1093,7 @@ class _CalendarTab extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected ? AppColors.card : Colors.transparent,
             borderRadius: AppRadius.sm,
-            boxShadow: selected ? const [AppShadows.card] : null,
+            boxShadow: selected ? AppShadows.card : null,
           ),
           child: Text(
             label,
@@ -1683,7 +1696,7 @@ class _IconBubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: background.withValues(alpha: 0.72),
             shape: BoxShape.circle,
-            boxShadow: const [AppShadows.card],
+            boxShadow: AppShadows.card,
           ),
           alignment: Alignment.center,
           child: Text(label, style: const TextStyle(fontSize: 32)),
@@ -1708,7 +1721,7 @@ class _CircleBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           shape: BoxShape.circle,
-          boxShadow: const [AppShadows.card],
+          boxShadow: AppShadows.card,
         ),
         child: Icon(icon, size: 38, color: AppColors.text),
       ),
@@ -1722,17 +1735,21 @@ class _PaperBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _PaperBackdropPainter(),
+      painter: _PaperBackdropPainter(color: AppColors.divider),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class _PaperBackdropPainter extends CustomPainter {
+  final Color color;
+
+  const _PaperBackdropPainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final dotPaint = Paint()
-      ..color = const Color(0xFFE4DDD3).withValues(alpha: 0.38)
+      ..color = color.withValues(alpha: 0.38)
       ..style = PaintingStyle.fill;
     const step = 16.0;
 
@@ -1744,5 +1761,6 @@ class _PaperBackdropPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _PaperBackdropPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

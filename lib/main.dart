@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app/theme/app_colors.dart';
 import 'app/theme/app_theme.dart';
 import 'app/router.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    const ProviderScope(
-      child: TallyJieApp(),
-    ),
-  );
+  await AppColors.restoreSavedPalette();
+  runApp(const ProviderScope(child: TallyJieApp()));
 }
 
 class TallyJieApp extends StatelessWidget {
@@ -17,11 +15,16 @@ class TallyJieApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'TallyJie',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      routerConfig: AppRouter.router,
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, _, child) {
+        return MaterialApp.router(
+          title: 'TallyJie',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          routerConfig: AppRouter.router,
+        );
+      },
     );
   }
 }

@@ -1,22 +1,32 @@
 import 'package:flutter/widgets.dart';
+import 'app_colors.dart';
 
 /// TallyJie 阴影 — 柔和纸片感
 class AppShadows {
   AppShadows._();
 
-  static const BoxShadow card = BoxShadow(
-    color: Color(0x08000000),
-    blurRadius: 16,
-    offset: Offset(0, 2),
-    spreadRadius: 0,
-  );
+  static List<BoxShadow> get card => [
+    BoxShadow(
+      color: AppColors.shadowColor,
+      blurRadius: 16,
+      offset: const Offset(0, 2),
+      spreadRadius: 0,
+    ),
+  ];
 
-  static const BoxShadow nav = BoxShadow(
-    color: Color(0x05000000),
-    blurRadius: 12,
-    offset: Offset(0, 2),
-    spreadRadius: 0,
-  );
+  static List<BoxShadow> get nav => [
+    BoxShadow(
+      color: Color.fromRGBO(
+        AppColors.shadowR,
+        AppColors.shadowG,
+        AppColors.shadowB,
+        AppColors.shadowAlpha * 0.72,
+      ),
+      blurRadius: 12,
+      offset: const Offset(0, 2),
+      spreadRadius: 0,
+    ),
+  ];
 
   static const BoxShadow none = BoxShadow(
     color: Color(0x00000000),

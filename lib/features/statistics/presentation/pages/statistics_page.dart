@@ -5,11 +5,60 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/date_helpers.dart';
 
-const _primaryBlue = Color(0xFF5E7A6B);
-const _secondaryText = Color(0xFF7F8C8D);
+Color get _primaryBlue => AppColors.accent;
+Color get _secondaryText => AppColors.textSecondary;
+
+Color _categoryVisualColor(String category, bool isIncome) {
+  if (isIncome) {
+    switch (category) {
+      case '工资':
+        return const Color(0xFF5D7A6B);
+      case '奖金':
+      case '红包':
+        return const Color(0xFF8FAE7F);
+      case '分红':
+      case '投资':
+        return const Color(0xFF7A9F8A);
+      case '兼职':
+        return const Color(0xFF8CB5A8);
+      case '退款':
+        return const Color(0xFF9B9187);
+      default:
+        return const Color(0xFF6F927D);
+    }
+  }
+
+  switch (category) {
+    case '住房':
+      return const Color(0xFF8F8378);
+    case '购物':
+    case '服饰':
+      return const Color(0xFFD8A47F);
+    case '餐饮':
+      return const Color(0xFFD27165);
+    case '水电':
+      return const Color(0xFFC2A85C);
+    case '娱乐':
+      return const Color(0xFFA68AAE);
+    case '交通':
+    case '旅行':
+      return const Color(0xFF7E9BA8);
+    case '医疗':
+      return const Color(0xFFC98578);
+    case '学习':
+      return const Color(0xFF7F9A72);
+    case '日用品':
+      return const Color(0xFF8CB5A8);
+    case '礼物':
+      return const Color(0xFFC98A9C);
+    default:
+      return const Color(0xFF9B9187);
+  }
+}
 
 enum _BillTypeFilter { all, expense, income }
 
@@ -137,15 +186,12 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                 style: AppTypography.body.copyWith(fontSize: 24),
                 decoration: InputDecoration(
                   hintText: '金额 / 备注 / 类别',
-                  hintStyle: const TextStyle(
-                    color: AppColors.textHint,
-                    fontSize: 22,
-                  ),
+                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 20,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search,
                     color: _secondaryText,
                     size: 30,
@@ -175,12 +221,12 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                   const SizedBox(width: 12),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(controller.text),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _primaryBlue,
-                      shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 14,
+                    style: AppTheme.primaryFilledButtonStyle.copyWith(
+                      padding: WidgetStateProperty.all(
+                        const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 14,
+                        ),
                       ),
                     ),
                     child: const Text('搜索', style: TextStyle(fontSize: 20)),
@@ -223,92 +269,97 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showReport) {
-      return _ReportPage(
-        records: _records,
-        reportType: _reportType,
-        selectedMonth: _reportMonth,
-        onBack: () => setState(() => _showReport = false),
-        onReportTypeChanged: (type) => setState(() => _reportType = type),
-        onMonthTap: _pickReportMonth,
-      );
-    }
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, themeVersion, child) {
+        if (_showReport) {
+          return _ReportPage(
+            records: _records,
+            reportType: _reportType,
+            selectedMonth: _reportMonth,
+            onBack: () => setState(() => _showReport = false),
+            onReportTypeChanged: (type) => setState(() => _reportType = type),
+            onMonthTap: _pickReportMonth,
+          );
+        }
 
-    final balance = _monthlyIncome - _monthlyExpense;
+        final balance = _monthlyIncome - _monthlyExpense;
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Center(
-                child: Text(
-                  '收支明细',
-                  style: AppTypography.title.copyWith(fontSize: 34),
-                ),
-              ),
-              const SizedBox(height: 22),
-              _BalanceCard(
-                balance: balance,
-                income: _monthlyIncome,
-                expense: _monthlyExpense,
-              ),
-              const SizedBox(height: 22),
-              _FilterToolbar(
-                billFilter: _billFilter,
-                timeFilter: _timeFilter,
-                hasSearch: _searchQuery.isNotEmpty,
-                onBillFilterChanged: (value) =>
-                    setState(() => _billFilter = value),
-                onTimeFilterChanged: (value) =>
-                    setState(() => _timeFilter = value),
-                onSearchTap: _openSearchDialog,
-                onReportTap: () => setState(() => _showReport = true),
-              ),
-              if (_searchQuery.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                _SearchStatus(
-                  query: _searchQuery,
-                  onClear: () => setState(() => _searchQuery = ''),
-                ),
-              ],
-              const SizedBox(height: 24),
-              Row(
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '账单流水',
-                    style: AppTypography.subtitle.copyWith(fontSize: 25),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${_filteredRecords.length} 条',
-                    style: AppTypography.caption.copyWith(
-                      color: _secondaryText,
-                      fontSize: 18,
+                  const SizedBox(height: 20),
+                  Center(
+                    child: Text(
+                      '收支明细',
+                      style: AppTypography.title.copyWith(fontSize: 34),
                     ),
                   ),
+                  const SizedBox(height: 22),
+                  _BalanceCard(
+                    balance: balance,
+                    income: _monthlyIncome,
+                    expense: _monthlyExpense,
+                  ),
+                  const SizedBox(height: 22),
+                  _FilterToolbar(
+                    billFilter: _billFilter,
+                    timeFilter: _timeFilter,
+                    hasSearch: _searchQuery.isNotEmpty,
+                    onBillFilterChanged: (value) =>
+                        setState(() => _billFilter = value),
+                    onTimeFilterChanged: (value) =>
+                        setState(() => _timeFilter = value),
+                    onSearchTap: _openSearchDialog,
+                    onReportTap: () => setState(() => _showReport = true),
+                  ),
+                  if (_searchQuery.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _SearchStatus(
+                      query: _searchQuery,
+                      onClear: () => setState(() => _searchQuery = ''),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Text(
+                        '账单流水',
+                        style: AppTypography.subtitle.copyWith(fontSize: 25),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_filteredRecords.length} 条',
+                        style: AppTypography.caption.copyWith(
+                          color: _secondaryText,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_filteredRecords.isEmpty)
+                    const _EmptyBills()
+                  else
+                    ..._filteredRecords.map(
+                      (record) => _TxnTile(
+                        record: record,
+                        onTap: () => _showBillDetail(record),
+                      ),
+                    ),
+                  const SizedBox(height: 52),
                 ],
               ),
-              const SizedBox(height: 16),
-              if (_filteredRecords.isEmpty)
-                const _EmptyBills()
-              else
-                ..._filteredRecords.map(
-                  (record) => _TxnTile(
-                    record: record,
-                    onTap: () => _showBillDetail(record),
-                  ),
-                ),
-              const SizedBox(height: 52),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -491,7 +542,7 @@ class _PillShell extends StatelessWidget {
         color: AppColors.card,
         borderRadius: AppRadius.capsule,
         border: Border.all(color: AppColors.divider.withValues(alpha: 0.72)),
-        boxShadow: const [AppShadows.card],
+        boxShadow: AppShadows.card,
       ),
       child: DefaultTextStyle.merge(
         style: AppTypography.caption.copyWith(
@@ -500,7 +551,7 @@ class _PillShell extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
         child: IconTheme(
-          data: const IconThemeData(color: _primaryBlue),
+          data: IconThemeData(color: _primaryBlue),
           child: child,
         ),
       ),
@@ -524,7 +575,7 @@ class _SearchStatus extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 22, color: _primaryBlue),
+          Icon(Icons.search, size: 22, color: _primaryBlue),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
@@ -537,7 +588,7 @@ class _SearchStatus extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onClear,
-            child: const Icon(Icons.close, size: 22, color: _primaryBlue),
+            child: Icon(Icons.close, size: 22, color: _primaryBlue),
           ),
         ],
       ),
@@ -556,27 +607,30 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = Color.lerp(AppColors.navSelected, AppColors.text, 0.16)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: AppColors.accentLight,
+        color: cardColor,
         borderRadius: AppRadius.lg,
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         children: [
           Text(
             '本月结余',
             style: AppTypography.caption.copyWith(
-              color: AppColors.accent,
+              color: AppColors.white,
               fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '¥${balance.toStringAsFixed(2)}',
             style: AppTypography.amount.copyWith(
-              color: AppColors.accent,
+              color: AppColors.white,
               fontSize: 50,
             ),
           ),
@@ -593,7 +647,7 @@ class _BalanceCard extends StatelessWidget {
               Container(
                 width: 1,
                 height: 54,
-                color: AppColors.accent.withValues(alpha: 0.2),
+                color: AppColors.white.withValues(alpha: 0.22),
               ),
               Expanded(
                 child: _MiniStat(
@@ -625,7 +679,13 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: AppTypography.caption.copyWith(fontSize: 18)),
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: AppColors.white.withValues(alpha: 0.78),
+            fontSize: 18,
+          ),
+        ),
         const SizedBox(height: 7),
         Text(
           '¥${amount.toStringAsFixed(2)}',
@@ -648,6 +708,7 @@ class _TxnTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = AppColors.navSelected;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -657,11 +718,11 @@ class _TxnTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: AppRadius.md,
-          boxShadow: const [AppShadows.card],
+          boxShadow: AppShadows.card,
         ),
         child: Row(
           children: [
-            _StatIcon(icon: record.icon, color: record.iconColor),
+            _StatIcon(icon: record.icon),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -669,14 +730,18 @@ class _TxnTile extends StatelessWidget {
                 children: [
                   Text(
                     record.note.isNotEmpty ? record.note : record.category,
-                    style: AppTypography.body.copyWith(fontSize: 21),
+                    style: AppTypography.body.copyWith(
+                      color: themeColor,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     '${record.account} · ${_formatBillTime(record.date)}',
                     style: AppTypography.caption.copyWith(
                       fontSize: 16,
-                      color: _secondaryText,
+                      color: themeColor.withValues(alpha: 0.68),
                     ),
                   ),
                 ],
@@ -706,6 +771,7 @@ class _BillDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = AppColors.navSelected;
     return SafeArea(
       top: false,
       child: Padding(
@@ -728,7 +794,7 @@ class _BillDetailSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 22),
-              _StatIcon(icon: record.icon, color: record.iconColor),
+              _StatIcon(icon: record.icon),
               const SizedBox(height: 14),
               Text(
                 record.isIncome
@@ -752,6 +818,7 @@ class _BillDetailSheet extends StatelessWidget {
                 child: Text(
                   '凭证附件',
                   style: AppTypography.body.copyWith(
+                    color: themeColor,
                     fontSize: 21,
                     fontWeight: FontWeight.w600,
                   ),
@@ -772,7 +839,7 @@ class _BillDetailSheet extends StatelessWidget {
                       ? '暂无图片凭证'
                       : '已上传 ${record.receiptCount} 张图片凭证',
                   style: AppTypography.caption.copyWith(
-                    color: _secondaryText,
+                    color: themeColor.withValues(alpha: 0.64),
                     fontSize: 18,
                   ),
                 ),
@@ -793,6 +860,7 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = AppColors.navSelected;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
@@ -803,7 +871,7 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               label,
               style: AppTypography.caption.copyWith(
-                color: _secondaryText,
+                color: themeColor.withValues(alpha: 0.62),
                 fontSize: 18,
               ),
             ),
@@ -812,7 +880,10 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: AppTypography.body.copyWith(fontSize: 20),
+              style: AppTypography.body.copyWith(
+                color: themeColor,
+                fontSize: 20,
+              ),
             ),
           ),
         ],
@@ -893,7 +964,7 @@ class _ReportPage extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.card,
                       borderRadius: AppRadius.capsule,
-                      boxShadow: const [AppShadows.card],
+                      boxShadow: AppShadows.card,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -906,7 +977,7 @@ class _ReportPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(
+                        Icon(
                           Icons.keyboard_arrow_down,
                           color: _secondaryText,
                           size: 24,
@@ -952,7 +1023,7 @@ class _BackButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: const SizedBox(
+      child: SizedBox(
         width: 56,
         height: 56,
         child: Icon(Icons.arrow_back_ios_new, size: 28, color: _primaryBlue),
@@ -1045,7 +1116,7 @@ class _ReportSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppShadows.card],
+        boxShadow: AppShadows.card,
       ),
       child: Text(
         text,
@@ -1087,7 +1158,7 @@ class _BarChartCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppShadows.card],
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1288,12 +1359,18 @@ class _DonutSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppShadows.card],
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTypography.subtitle.copyWith(fontSize: 23)),
+          Text(
+            title,
+            style: AppTypography.subtitle.copyWith(
+              color: AppColors.navSelected,
+              fontSize: 23,
+            ),
+          ),
           const SizedBox(height: 20),
           if (stats.isEmpty)
             Center(
@@ -1316,6 +1393,7 @@ class _DonutSection extends StatelessWidget {
                     child: Text(
                       '¥${total.toStringAsFixed(0)}',
                       style: AppTypography.body.copyWith(
+                        color: AppColors.navSelected,
                         fontSize: 19,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1380,12 +1458,20 @@ class _CategoryStatRow extends StatelessWidget {
           Expanded(
             child: Text(
               stat.name,
-              style: AppTypography.body.copyWith(fontSize: 20),
+              style: AppTypography.body.copyWith(
+                color: AppColors.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Text(
             '¥${stat.amount.toStringAsFixed(0)}  ${(pct * 100).round()}%',
-            style: AppTypography.caption.copyWith(fontSize: 17),
+            style: AppTypography.caption.copyWith(
+              color: stat.color,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1476,10 +1562,7 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
                 FilledButton(
                   onPressed: () =>
                       Navigator.of(context).pop(DateTime(_year, _month)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _primaryBlue,
-                    shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
-                  ),
+                  style: AppTheme.primaryFilledButtonStyle,
                   child: const Text('确定', style: TextStyle(fontSize: 17)),
                 ),
               ],
@@ -1493,21 +1576,22 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
 
 class _StatIcon extends StatelessWidget {
   final IconData icon;
-  final Color color;
+  final Color? color;
 
-  const _StatIcon({required this.icon, required this.color});
+  const _StatIcon({required this.icon, this.color});
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = color ?? AppColors.navSelected;
     return Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: iconColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
-      child: Icon(icon, size: 25, color: color),
+      child: Icon(icon, size: 25, color: iconColor),
     );
   }
 }
@@ -1523,7 +1607,7 @@ class _EmptyBills extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: AppRadius.md,
-        boxShadow: const [AppShadows.card],
+        boxShadow: AppShadows.card,
       ),
       alignment: Alignment.center,
       child: Text(
@@ -1542,7 +1626,6 @@ class _BillRecord {
   final DateTime date;
   final double amount;
   final IconData icon;
-  final Color iconColor;
   final int receiptCount;
 
   const _BillRecord({
@@ -1553,7 +1636,6 @@ class _BillRecord {
     required this.date,
     required this.amount,
     required this.icon,
-    required this.iconColor,
     this.receiptCount = 0,
   });
 
@@ -1596,7 +1678,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '微信',
       date: DateTime(now.year, now.month, now.day, 18, 30),
       icon: Icons.restaurant_outlined,
-      iconColor: const Color(0xFFC96C5C),
       receiptCount: 2,
     ),
     _BillRecord(
@@ -1607,7 +1688,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '支付宝',
       date: DateTime(now.year, now.month, now.day, 17, 0),
       icon: Icons.directions_car_outlined,
-      iconColor: const Color(0xFF6D8BA8),
     ),
     _BillRecord(
       id: '3',
@@ -1617,7 +1697,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '银行卡',
       date: at(0, 15, 9, 0),
       icon: Icons.payments_outlined,
-      iconColor: const Color(0xFF6B9D78),
     ),
     _BillRecord(
       id: '4',
@@ -1627,7 +1706,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '支付宝',
       date: at(0, 14, 20, 20),
       icon: Icons.shopping_bag_outlined,
-      iconColor: const Color(0xFFB88A5B),
       receiptCount: 1,
     ),
     _BillRecord(
@@ -1638,7 +1716,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '微信',
       date: at(0, 8, 19, 40),
       icon: Icons.sports_esports_outlined,
-      iconColor: const Color(0xFF9A7BA8),
     ),
     _BillRecord(
       id: '6',
@@ -1648,7 +1725,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '微信',
       date: at(0, 6, 12, 15),
       icon: Icons.card_giftcard_outlined,
-      iconColor: const Color(0xFFC96C5C),
     ),
     _BillRecord(
       id: '7',
@@ -1658,7 +1734,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '银行卡',
       date: at(0, 1, 8, 30),
       icon: Icons.home_outlined,
-      iconColor: const Color(0xFF8E7C66),
     ),
     _BillRecord(
       id: '8',
@@ -1668,7 +1743,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
       account: '支付宝',
       date: at(0, 3, 10, 8),
       icon: Icons.lightbulb_outline,
-      iconColor: const Color(0xFFD2A84A),
     ),
   ];
 
@@ -1682,7 +1756,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
         account: '微信',
         date: at(-i, 11, 12, 10),
         icon: Icons.restaurant_outlined,
-        iconColor: const Color(0xFFC96C5C),
       ),
       _BillRecord(
         id: 'm${i}b',
@@ -1692,7 +1765,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
         account: '支付宝',
         date: at(-i, 16, 16, 30),
         icon: Icons.shopping_bag_outlined,
-        iconColor: const Color(0xFFB88A5B),
       ),
       _BillRecord(
         id: 'm${i}c',
@@ -1702,7 +1774,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
         account: '银行卡',
         date: at(-i, 15, 9, 0),
         icon: Icons.payments_outlined,
-        iconColor: const Color(0xFF6B9D78),
       ),
       _BillRecord(
         id: 'm${i}d',
@@ -1712,7 +1783,6 @@ List<_BillRecord> _buildMockRecords(DateTime now) {
         account: '支付宝',
         date: at(-i, 23, 18, 20),
         icon: Icons.directions_car_outlined,
-        iconColor: const Color(0xFF6D8BA8),
       ),
     ]);
   }
@@ -1735,7 +1805,7 @@ List<_CategoryStat> _buildCategoryStats(
         name: record.category,
         amount: record.amount.abs(),
         icon: record.icon,
-        color: record.iconColor,
+        color: _categoryVisualColor(record.category, income),
       );
     } else {
       grouped[record.category] = _CategoryStat(

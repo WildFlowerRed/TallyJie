@@ -26,53 +26,69 @@ class CapsuleNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.bg,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 24, 18, 14),
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: _SettingsButton(onTap: onSettingsTap),
-              ),
-              const SizedBox(height: 18),
-              Center(
-                child: Container(
-                  height: 74,
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.card.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(37),
-                    border: Border.all(
-                      color: AppColors.white.withValues(alpha: 0.72),
-                    ),
-                    boxShadow: const [AppShadows.nav],
-                  ),
-                  child: Row(
-                    children: List.generate(_tabs.length, (i) {
-                      final sel = selectedIndex == i;
-                      return Expanded(
-                        child: _NavItem(
-                          tab: _tabs[i],
-                          selected: sel,
-                          onTap: () => onTap(i),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            ],
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, themeVersion, child) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.navBg.withValues(alpha: 0.72),
+                AppColors.navBg,
+              ],
+            ),
           ),
-        ),
-      ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 24, 18, 14),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _SettingsButton(onTap: onSettingsTap),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Container(
+                      height: 74,
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.card.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(37),
+                        border: Border.all(
+                          color: AppColors.borderDivider.withValues(
+                            alpha: 0.72,
+                          ),
+                        ),
+                        boxShadow: AppShadows.nav,
+                      ),
+                      child: Row(
+                        children: List.generate(_tabs.length, (i) {
+                          final sel = selectedIndex == i;
+                          return Expanded(
+                            child: _NavItem(
+                              tab: _tabs[i],
+                              selected: sel,
+                              onTap: () => onTap(i),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

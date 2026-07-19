@@ -22,215 +22,215 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   DateTime _selectedTime = DateTime.now();
   bool _isKeypadOpen = false;
 
-  final _expenseCats = [
+  List<Map<String, dynamic>> get _expenseCats => [
     {
       'id': 1,
       'icon': Icons.restaurant_outlined,
-      'color': Color(0xFFC96C5C),
+      'color': AppColors.categoryFood,
       'name': '餐饮',
     },
     {
       'id': 2,
       'icon': Icons.directions_car_outlined,
-      'color': Color(0xFF6D8BA8),
+      'color': AppColors.categoryTransit,
       'name': '交通',
     },
     {
       'id': 3,
       'icon': Icons.shopping_bag_outlined,
-      'color': Color(0xFFB88A5B),
+      'color': AppColors.categoryShopping,
       'name': '购物',
     },
     {
       'id': 4,
       'icon': Icons.home_outlined,
-      'color': Color(0xFF8E7C66),
+      'color': AppColors.categoryHome,
       'name': '住房',
     },
     {
       'id': 5,
       'icon': Icons.lightbulb_outline,
-      'color': Color(0xFFD2A84A),
+      'color': AppColors.categoryUtility,
       'name': '水电',
     },
     {
       'id': 6,
       'icon': Icons.phone_iphone_outlined,
-      'color': Color(0xFF7D91A6),
+      'color': AppColors.categoryDigital,
       'name': '通讯',
     },
     {
       'id': 7,
       'icon': Icons.sports_esports_outlined,
-      'color': Color(0xFF9A7BA8),
+      'color': AppColors.categoryFun,
       'name': '娱乐',
     },
     {
       'id': 8,
       'icon': Icons.menu_book_outlined,
-      'color': Color(0xFF6B9D78),
+      'color': AppColors.categoryStudy,
       'name': '学习',
     },
     {
       'id': 9,
       'icon': Icons.medical_services_outlined,
-      'color': Color(0xFFD4786E),
+      'color': AppColors.expense,
       'name': '医疗',
     },
     {
       'id': 10,
       'icon': Icons.flight_takeoff_outlined,
-      'color': Color(0xFF6D9CA8),
+      'color': AppColors.categoryTransit,
       'name': '旅行',
     },
     {
       'id': 11,
       'icon': Icons.cruelty_free_outlined,
-      'color': Color(0xFFA88372),
+      'color': AppColors.categoryHome,
       'name': '宠物',
     },
     {
       'id': 12,
       'icon': Icons.card_giftcard_outlined,
-      'color': Color(0xFFC77D90),
+      'color': AppColors.categoryFun,
       'name': '礼物',
     },
     {
       'id': 13,
       'icon': Icons.spa_outlined,
-      'color': Color(0xFF86B66E),
+      'color': AppColors.income,
       'name': '日用品',
     },
     {
       'id': 14,
       'icon': Icons.checkroom_outlined,
-      'color': Color(0xFFA982A4),
+      'color': AppColors.categoryShopping,
       'name': '服饰',
     },
     {
       'id': 15,
       'icon': Icons.brush_outlined,
-      'color': Color(0xFFC98294),
+      'color': AppColors.categoryFun,
       'name': '美妆',
     },
     {
       'id': 16,
       'icon': Icons.directions_run_outlined,
-      'color': Color(0xFF7AA486),
+      'color': AppColors.categoryStudy,
       'name': '运动',
     },
     {
       'id': 17,
       'icon': Icons.devices_outlined,
-      'color': Color(0xFF6E8FA4),
+      'color': AppColors.categoryDigital,
       'name': '数码',
     },
     {
       'id': 18,
       'icon': Icons.more_horiz,
-      'color': Color(0xFF8E8E93),
+      'color': AppColors.categoryOther,
       'name': '其他',
     },
   ];
 
-  final _incomeCats = [
+  List<Map<String, dynamic>> get _incomeCats => [
     {
       'id': 101,
       'icon': Icons.payments_outlined,
-      'color': Color(0xFF6B9D78),
+      'color': AppColors.income,
       'name': '工资',
     },
     {
       'id': 102,
       'icon': Icons.redeem_outlined,
-      'color': Color(0xFFC77D90),
+      'color': AppColors.categoryFun,
       'name': '奖金',
     },
     {
       'id': 103,
       'icon': Icons.trending_up_outlined,
-      'color': Color(0xFF7AA486),
+      'color': AppColors.categoryStudy,
       'name': '分红',
     },
     {
       'id': 104,
       'icon': Icons.work_outline,
-      'color': Color(0xFF8E7C66),
+      'color': AppColors.categoryHome,
       'name': '兼职',
     },
     {
       'id': 105,
       'icon': Icons.credit_card_outlined,
-      'color': Color(0xFF6D8BA8),
+      'color': AppColors.categoryTransit,
       'name': '收款',
     },
     {
       'id': 106,
       'icon': Icons.keyboard_return_outlined,
-      'color': Color(0xFF8E8E93),
+      'color': AppColors.categoryOther,
       'name': '退款',
     },
     {
       'id': 107,
       'icon': Icons.card_giftcard_outlined,
-      'color': Color(0xFFC96C5C),
+      'color': AppColors.expense,
       'name': '红包',
     },
     {
       'id': 108,
       'icon': Icons.account_balance_outlined,
-      'color': Color(0xFF5E7A6B),
+      'color': AppColors.accent,
       'name': '利息',
     },
     {
       'id': 109,
       'icon': Icons.insert_chart_outlined,
-      'color': Color(0xFF6E8FA4),
+      'color': AppColors.categoryDigital,
       'name': '投资',
     },
     {
       'id': 110,
       'icon': Icons.more_horiz,
-      'color': Color(0xFF8E8E93),
+      'color': AppColors.categoryOther,
       'name': '其他',
     },
   ];
 
-  final _accounts = [
+  List<Map<String, dynamic>> get _accounts => [
     {
       'id': 1,
       'icon': Icons.chat_bubble_outline,
-      'color': Color(0xFF6B9D78),
+      'color': AppColors.income,
       'name': '微信',
     },
     {
       'id': 2,
       'icon': Icons.account_balance_wallet_outlined,
-      'color': Color(0xFF5F8FB8),
+      'color': AppColors.categoryTransit,
       'name': '支付宝',
     },
     {
       'id': 3,
       'icon': Icons.account_balance_outlined,
-      'color': Color(0xFF8E7C66),
+      'color': AppColors.categoryHome,
       'name': '银行卡',
     },
     {
       'id': 4,
       'icon': Icons.money_outlined,
-      'color': Color(0xFF7AA486),
+      'color': AppColors.categoryStudy,
       'name': '现金',
     },
     {
       'id': 5,
       'icon': Icons.credit_card_outlined,
-      'color': Color(0xFF9A7BA8),
+      'color': AppColors.categoryFun,
       'name': '信用卡',
     },
     {
       'id': 6,
       'icon': Icons.phone_iphone_outlined,
-      'color': Color(0xFF6D8BA8),
+      'color': AppColors.categoryDigital,
       'name': '数字钱包',
     },
   ];
@@ -355,196 +355,202 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _isExpense ? AppColors.expense : AppColors.income;
+    return ValueListenableBuilder<int>(
+      valueListenable: AppColors.themeVersion,
+      builder: (context, themeVersion, child) {
+        final accent = _isExpense ? AppColors.expense : AppColors.income;
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const SizedBox(height: 22),
-
-              // 日期时间
-              GestureDetector(
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedTime,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2030),
-                  );
-                  if (!context.mounted || d == null) return;
-
-                  final t = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(_selectedTime),
-                  );
-                  if (!mounted || t == null) return;
-
-                  setState(() {
-                    _selectedTime = DateTime(
-                      d.year,
-                      d.month,
-                      d.day,
-                      t.hour,
-                      t.minute,
-                    );
-                  });
-                },
-                child: Text(
-                  DateFormat('yyyy年M月d日 HH:mm').format(_selectedTime),
-                  style: AppTypography.caption.copyWith(fontSize: 18),
-                ),
-              ),
-              const SizedBox(height: 26),
-
-              // 金额
-              GestureDetector(
-                onTap: _showAmountKeypad,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    _amount.isEmpty ? '¥0.00' : '¥$_amount',
-                    style: AppTypography.amountLarge.copyWith(
-                      color: accent,
-                      fontSize: 64,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: 58,
-                height: 3,
-                color: accent.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 32),
-
-              // 收支切换
-              Row(
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _TypeBtn(
-                      label: '支出',
-                      selected: _isExpense,
-                      color: AppColors.expense,
-                      onTap: () => _switchType(true),
+                  const SizedBox(height: 22),
+
+                  // 日期时间
+                  GestureDetector(
+                    onTap: () async {
+                      final d = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedTime,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (!context.mounted || d == null) return;
+
+                      final t = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.fromDateTime(_selectedTime),
+                      );
+                      if (!mounted || t == null) return;
+
+                      setState(() {
+                        _selectedTime = DateTime(
+                          d.year,
+                          d.month,
+                          d.day,
+                          t.hour,
+                          t.minute,
+                        );
+                      });
+                    },
+                    child: Text(
+                      DateFormat('yyyy年M月d日 HH:mm').format(_selectedTime),
+                      style: AppTypography.caption.copyWith(fontSize: 18),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _TypeBtn(
-                      label: '收入',
-                      selected: !_isExpense,
-                      color: AppColors.income,
-                      onTap: () => _switchType(false),
+                  const SizedBox(height: 26),
+
+                  // 金额
+                  GestureDetector(
+                    onTap: _showAmountKeypad,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        _amount.isEmpty ? '¥0.00' : '¥$_amount',
+                        style: AppTypography.amountLarge.copyWith(
+                          color: accent,
+                          fontSize: 64,
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 58,
+                    height: 3,
+                    color: accent.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // 收支切换
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _TypeBtn(
+                          label: '支出',
+                          selected: _isExpense,
+                          color: AppColors.expense,
+                          onTap: () => _switchType(true),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _TypeBtn(
+                          label: '收入',
+                          selected: !_isExpense,
+                          color: AppColors.income,
+                          onTap: () => _switchType(false),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
+                  // 分类
+                  _SectionTitle(label: '分类'),
+                  const SizedBox(height: 16),
+                  _ChipGrid(
+                    items: _cats,
+                    selectedId: _selectedCatId,
+                    onSelect: (id) => setState(() => _selectedCatId = id),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // 账户
+                  _SectionTitle(label: '账户'),
+                  const SizedBox(height: 16),
+                  _ChipGrid(
+                    items: _accounts,
+                    selectedId: _selectedAccId,
+                    onSelect: (id) => setState(() => _selectedAccId = id),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // 备注
+                  _SectionTitle(label: '备注'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _noteCtrl,
+                    style: AppTypography.body.copyWith(fontSize: 21),
+                    decoration: InputDecoration(
+                      hintText: '例如：和朋友吃火锅',
+                      hintStyle: TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // 凭证
+                  _SectionTitle(label: '消费凭证'),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 30),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: AppRadius.md,
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate_outlined,
+                          size: 30,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '添加凭证',
+                          style: AppTypography.body.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 21,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // 保存
+                  GestureDetector(
+                    onTap: _save,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: BoxDecoration(
+                        color: AppColors.text,
+                        borderRadius: AppRadius.md,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '保存账单',
+                          style: AppTypography.body.copyWith(
+                            color: AppColors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 52),
                 ],
               ),
-              const SizedBox(height: 32),
-
-              // 分类
-              _SectionTitle(label: '分类'),
-              const SizedBox(height: 16),
-              _ChipGrid(
-                items: _cats,
-                selectedId: _selectedCatId,
-                onSelect: (id) => setState(() => _selectedCatId = id),
-                selectedColor: accent,
-              ),
-              const SizedBox(height: 28),
-
-              // 账户
-              _SectionTitle(label: '账户'),
-              const SizedBox(height: 16),
-              _ChipGrid(
-                items: _accounts,
-                selectedId: _selectedAccId,
-                onSelect: (id) => setState(() => _selectedAccId = id),
-                selectedColor: AppColors.accent,
-              ),
-              const SizedBox(height: 28),
-
-              // 备注
-              _SectionTitle(label: '备注'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _noteCtrl,
-                style: AppTypography.body.copyWith(fontSize: 21),
-                decoration: const InputDecoration(
-                  hintText: '例如：和朋友吃火锅',
-                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 20),
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // 凭证
-              _SectionTitle(label: '消费凭证'),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 30),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadius.md,
-                  border: Border.all(color: AppColors.divider),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.add_photo_alternate_outlined,
-                      size: 30,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '添加凭证',
-                      style: AppTypography.body.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 21,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              // 保存
-              GestureDetector(
-                onTap: _save,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  decoration: BoxDecoration(
-                    color: AppColors.text,
-                    borderRadius: AppRadius.md,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '保存账单',
-                      style: AppTypography.body.copyWith(
-                        color: AppColors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 52),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -580,10 +586,10 @@ class _AmountKeypadSheet extends StatelessWidget {
         height: height,
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 22),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          boxShadow: [AppShadows.card],
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: AppShadows.card,
         ),
         child: SafeArea(
           top: false,
@@ -710,22 +716,26 @@ class _TypeBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fillColor = selected
+        ? color
+        : Color.lerp(color, AppColors.card, 0.28)!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 22),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.1) : AppColors.surface,
+          color: fillColor,
           borderRadius: AppRadius.md,
           border: Border.all(
-            color: selected ? color.withValues(alpha: 0.3) : Colors.transparent,
+            color: selected ? color : Colors.transparent,
+            width: selected ? 1.2 : 1,
           ),
         ),
         child: Center(
           child: Text(
             label,
             style: AppTypography.body.copyWith(
-              color: selected ? color : AppColors.textSecondary,
+              color: AppColors.white,
               fontSize: 22,
               fontWeight: FontWeight.w600,
             ),
@@ -740,51 +750,51 @@ class _ChipGrid extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final int? selectedId;
   final ValueChanged<int> onSelect;
-  final Color selectedColor;
   const _ChipGrid({
     required this.items,
     required this.selectedId,
     required this.onSelect,
-    required this.selectedColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = AppColors.navSelected;
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: items.map((item) {
         final id = item['id'] as int;
         final sel = selectedId == id;
+        final foreground = sel ? AppColors.white : themeColor;
         return GestureDetector(
           onTap: () => onSelect(id),
+          behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutQuart,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
             decoration: BoxDecoration(
-              color: sel
-                  ? selectedColor.withValues(alpha: 0.15)
-                  : AppColors.surface,
+              color: sel ? themeColor : themeColor.withValues(alpha: 0.08),
               borderRadius: AppRadius.capsule,
               border: Border.all(
                 color: sel
-                    ? selectedColor.withValues(alpha: 0.3)
+                    ? themeColor.withValues(alpha: 0.82)
                     : Colors.transparent,
               ),
+              boxShadow: sel ? AppShadows.card : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  item['icon'] as IconData,
-                  size: 22,
-                  color: sel ? selectedColor : item['color'] as Color,
-                ),
-                const SizedBox(width: 8),
+                Icon(item['icon'] as IconData, size: 23, color: foreground),
+                const SizedBox(width: 9),
                 Text(
                   item['name'] as String,
-                  style: AppTypography.caption.copyWith(fontSize: 18),
+                  style: AppTypography.caption.copyWith(
+                    color: foreground,
+                    fontSize: 18,
+                    fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                  ),
                 ),
               ],
             ),

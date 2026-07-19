@@ -38,15 +38,8 @@ class _SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<_SettingsDialog> {
-  String _theme = '默认浅色';
+  String _theme = AppColors.currentTheme;
   String? _fileStatus;
-
-  static const _themes = [
-    _ThemeOption('默认浅色', Color(0xFFFAF8F5), Color(0xFF1C1C1E)),
-    _ThemeOption('流心粉色', Color(0xFFFFEEF3), Color(0xFFC96C86)),
-    _ThemeOption('风雅青色', Color(0xFFE7F2EF), Color(0xFF5E7A6B)),
-    _ThemeOption('经典黑白', Color(0xFFF7F7F7), Color(0xFF222222)),
-  ];
 
   void _setFileStatus(String value) {
     setState(() => _fileStatus = value);
@@ -66,7 +59,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(28),
-              boxShadow: const [AppShadows.card],
+              boxShadow: AppShadows.card,
             ),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -95,15 +88,18 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                     title: '主题设置',
                     child: Column(
                       children: [
-                        for (var i = 0; i < _themes.length; i++) ...[
+                        for (var i = 0; i < AppColors.palettes.length; i++) ...[
                           _ThemeTile(
-                            option: _themes[i],
-                            selected: _theme == _themes[i].label,
+                            option: AppColors.palettes[i],
+                            selected: _theme == AppColors.palettes[i].label,
                             onTap: () {
-                              setState(() => _theme = _themes[i].label);
+                              AppColors.applyPalette(AppColors.palettes[i]);
+                              setState(
+                                () => _theme = AppColors.palettes[i].label,
+                              );
                             },
                           ),
-                          if (i != _themes.length - 1)
+                          if (i != AppColors.palettes.length - 1)
                             const SizedBox(height: 12),
                         ],
                       ],
@@ -208,7 +204,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _ThemeTile extends StatelessWidget {
-  final _ThemeOption option;
+  final AppThemePalette option;
   final bool selected;
   final VoidCallback onTap;
 
@@ -226,50 +222,151 @@ class _ThemeTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutQuart,
-        height: 62,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? AppColors.text : AppColors.card,
+          color: selected
+              ? option.accent.withValues(alpha: 0.12)
+              : AppColors.card,
           borderRadius: AppRadius.md,
           border: Border.all(
-            color: selected ? AppColors.text : AppColors.divider,
+            color: selected
+                ? option.accent.withValues(alpha: 0.36)
+                : AppColors.divider,
           ),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: option.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.divider),
-              ),
-              alignment: Alignment.center,
-              child: Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: option.accent,
-                  shape: BoxShape.circle,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    option.label,
+                    style: AppTypography.body.copyWith(
+                      fontSize: 20,
+                      color: option.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+                if (selected)
+                  Icon(Icons.check_circle, size: 25, color: option.accent),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
               child: Text(
-                option.label,
-                style: AppTypography.body.copyWith(
-                  fontSize: 20,
-                  color: selected ? AppColors.white : AppColors.text,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                option.description,
+                style: AppTypography.caption.copyWith(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
-            if (selected)
-              const Icon(Icons.check, size: 25, color: AppColors.white),
+            const SizedBox(height: 12),
+            _PalettePreview(option: option),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PalettePreview extends StatelessWidget {
+  final AppThemePalette option;
+
+  const _PalettePreview({required this.option});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 54,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: option.bg,
+        borderRadius: AppRadius.sm,
+        border: Border.all(color: AppColors.divider.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: option.card,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  _PaletteDot(color: option.accent),
+                  const SizedBox(width: 6),
+                  _PaletteBar(color: option.text, width: 30),
+                  const SizedBox(width: 4),
+                  _PaletteBar(color: option.textSecondary, width: 18),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _PaletteSwatch(color: option.surface),
+          const SizedBox(width: 6),
+          _PaletteSwatch(color: option.textSecondary),
+          const SizedBox(width: 6),
+          _PaletteSwatch(color: option.accent),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaletteDot extends StatelessWidget {
+  final Color color;
+
+  const _PaletteDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _PaletteBar extends StatelessWidget {
+  final Color color;
+  final double width;
+
+  const _PaletteBar({required this.color, required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: 8,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+}
+
+class _PaletteSwatch extends StatelessWidget {
+  final Color color;
+
+  const _PaletteSwatch({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
       ),
     );
   }
@@ -337,12 +434,4 @@ class _FileAction extends StatelessWidget {
       ],
     );
   }
-}
-
-class _ThemeOption {
-  final String label;
-  final Color background;
-  final Color accent;
-
-  const _ThemeOption(this.label, this.background, this.accent);
 }
