@@ -30,23 +30,50 @@ class CapsuleNavBar extends StatefulWidget {
   State<CapsuleNavBar> createState() => _CapsuleNavBarState();
 }
 
-class _CapsuleNavBarState extends State<CapsuleNavBar> {
+class _CapsuleNavBarState extends State<CapsuleNavBar>
+    with SingleTickerProviderStateMixin {
   int _liquidDirection = 1;
   int _lastIndex = 0;
+  int _fromIndex = 0;
+  late final AnimationController _jellyController;
 
   @override
   void initState() {
     super.initState();
     _lastIndex = widget.selectedIndex;
+    _fromIndex = widget.selectedIndex;
+    _jellyController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 680),
+      value: 1,
+    );
   }
 
   @override
   void didUpdateWidget(covariant CapsuleNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selectedIndex != _lastIndex) {
+      _fromIndex = _lastIndex;
       _liquidDirection = widget.selectedIndex > _lastIndex ? 1 : -1;
       _lastIndex = widget.selectedIndex;
+      _jellyController.forward(from: 0);
     }
+  }
+
+  @override
+  void dispose() {
+    _jellyController.dispose();
+    super.dispose();
+  }
+
+  double _springProgress(double t) {
+    if (t >= 1) return 1;
+    return 1 - math.exp(-6.2 * t) * math.cos(13.0 * t);
+  }
+
+  double _dampedWobble(double t) {
+    if (t >= 1) return 0;
+    return math.exp(-5.4 * t) * math.cos(22.0 * t);
   }
 
   @override
@@ -98,38 +125,71 @@ class _CapsuleNavBarState extends State<CapsuleNavBar> {
                         builder: (context, constraints) {
                           final itemWidth =
                               constraints.maxWidth / CapsuleNavBar._tabs.length;
-                          return Stack(
-                            children: [
-                              AnimatedPositioned(
-                                duration: const Duration(milliseconds: 360),
-                                curve: Curves.easeOutQuart,
-                                left: itemWidth * widget.selectedIndex,
-                                top: 0,
-                                bottom: 0,
-                                width: itemWidth,
-                                child: _LiquidSelection(
-                                  key: ValueKey<String>(
-                                    '${widget.selectedIndex}_$_liquidDirection',
-                                  ),
-                                  direction: _liquidDirection,
-                                ),
-                              ),
-                              Row(
-                                children: List.generate(
-                                  CapsuleNavBar._tabs.length,
-                                  (i) {
-                                    final sel = widget.selectedIndex == i;
-                                    return Expanded(
-                                      child: _NavItem(
-                                        tab: CapsuleNavBar._tabs[i],
-                                        selected: sel,
-                                        onTap: () => widget.onTap(i),
+                          return AnimatedBuilder(
+                            animation: _jellyController,
+                            builder: (context, child) {
+                              final t = _jellyController.value;
+                              final progress = _springProgress(t);
+                              final wobble = _dampedWobble(t);
+                              final fromLeft = itemWidth * _fromIndex;
+                              final targetLeft =
+                                  itemWidth * widget.selectedIndex;
+                              final left =
+                                  fromLeft + (targetLeft - fromLeft) * progress;
+                              final squeezeX = (1 - 0.15 * wobble).clamp(
+                                0.84,
+                                1.08,
+                              );
+                              final stretchY = (1 + 0.09 * wobble).clamp(
+                                0.94,
+                                1.12,
+                              );
+                              final textShift =
+                                  _liquidDirection *
+                                  math.sin(t * math.pi) *
+                                  math.exp(-3.2 * t) *
+                                  8;
+                              return Stack(
+                                children: [
+                                  Positioned(
+                                    left: left.clamp(
+                                      -itemWidth * 0.12,
+                                      constraints.maxWidth - itemWidth * 0.88,
+                                    ),
+                                    top: 0,
+                                    bottom: 0,
+                                    width: itemWidth,
+                                    child: Transform.scale(
+                                      scaleX: squeezeX.toDouble(),
+                                      scaleY: stretchY.toDouble(),
+                                      child: _LiquidSelection(
+                                        key: ValueKey<String>(
+                                          '${widget.selectedIndex}_$_liquidDirection',
+                                        ),
+                                        direction: _liquidDirection,
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                                    ),
+                                  ),
+                                  Row(
+                                    children: List.generate(
+                                      CapsuleNavBar._tabs.length,
+                                      (i) {
+                                        final sel = widget.selectedIndex == i;
+                                        return Expanded(
+                                          child: _NavItem(
+                                            tab: CapsuleNavBar._tabs[i],
+                                            selected: sel,
+                                            jellyWobble: sel ? wobble : 0,
+                                            jellyShift: sel ? textShift : 0,
+                                            onTap: () => widget.onTap(i),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           );
                         },
                       ),
@@ -182,8 +242,8 @@ class _LiquidSelection extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 430),
-      curve: Curves.easeOutQuart,
+      duration: const Duration(milliseconds: 560),
+      curve: Curves.easeOutBack,
       builder: (context, value, child) {
         return CustomPaint(
           painter: _LiquidPillPainter(
@@ -294,11 +354,15 @@ class _Tab {
 class _NavItem extends StatelessWidget {
   final _Tab tab;
   final bool selected;
+  final double jellyWobble;
+  final double jellyShift;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.tab,
     required this.selected,
+    this.jellyWobble = 0,
+    this.jellyShift = 0,
     required this.onTap,
   });
 
@@ -311,34 +375,43 @@ class _NavItem extends StatelessWidget {
         scale: selected ? 1.0 : 0.94,
         duration: AppDurations.short,
         curve: AppTheme.easeOutQuart,
-        child: AnimatedContainer(
-          duration: AppDurations.medium,
-          curve: AppTheme.easeOutQuart,
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: const BoxDecoration(color: Colors.transparent),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  tab.icon,
-                  size: 27,
-                  color: selected ? AppColors.navText : AppColors.text,
+        child: Transform.translate(
+          offset: Offset(jellyShift, 0),
+          child: Transform.scale(
+            scaleX: (1 + 0.035 * jellyWobble).clamp(0.97, 1.04).toDouble(),
+            scaleY: (1 - 0.025 * jellyWobble).clamp(0.97, 1.03).toDouble(),
+            child: AnimatedContainer(
+              duration: AppDurations.medium,
+              curve: AppTheme.easeOutQuart,
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: const BoxDecoration(color: Colors.transparent),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      tab.icon,
+                      size: 27,
+                      color: selected ? AppColors.navText : AppColors.text,
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedDefaultTextStyle(
+                      duration: AppDurations.short,
+                      curve: AppTheme.easeOutQuart,
+                      style: AppTypography.navLabel.copyWith(
+                        color: selected ? AppColors.navText : AppColors.text,
+                        fontSize: 19,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                      child: Text(tab.label),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                AnimatedDefaultTextStyle(
-                  duration: AppDurations.short,
-                  curve: AppTheme.easeOutQuart,
-                  style: AppTypography.navLabel.copyWith(
-                    color: selected ? AppColors.navText : AppColors.text,
-                    fontSize: 19,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                  child: Text(tab.label),
-                ),
-              ],
+              ),
             ),
           ),
         ),
