@@ -10,6 +10,7 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../core/services/local_data_api.dart';
+import '../../../../core/widgets/cached_app_image.dart';
 
 /// 记账账本
 class LedgerPage extends ConsumerStatefulWidget {
@@ -276,6 +277,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
     Uint8List? previewBytes;
     try {
       previewBytes = await image.readAsBytes();
+      AppImageCache.remember(image.path, previewBytes);
     } catch (_) {
       previewBytes = null;
     }
@@ -647,18 +649,17 @@ class _ReceiptImagePreview extends StatelessWidget {
       return Image.memory(
         image.bytes!,
         fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
         errorBuilder: (context, error, stackTrace) => _fallback(),
       );
     }
-    final path = image.path;
-    if (path.startsWith('http') || path.startsWith('blob:')) {
-      return Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _fallback(),
-      );
-    }
-    return _fallback();
+    return CachedAppImage(
+      path: image.path,
+      fit: BoxFit.cover,
+      backgroundColor: AppColors.card,
+      fallbackBuilder: (_) => _fallback(),
+    );
   }
 
   Widget _fallback() {

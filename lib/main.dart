@@ -4,9 +4,11 @@ import 'app/theme/app_colors.dart';
 import 'app/theme/app_font_scale.dart';
 import 'app/theme/app_theme.dart';
 import 'app/router.dart';
+import 'core/widgets/cached_app_image.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppImageCache.configureFlutterImageCache();
   await AppColors.restoreSavedPalette();
   await AppFontScale.restore();
   runApp(const ProviderScope(child: TallyJieApp()));

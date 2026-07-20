@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +12,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/services/local_data_api.dart';
 import '../../../../core/utils/date_helpers.dart';
+import '../../../../core/widgets/cached_app_image.dart';
 
 Color get _primaryBlue => AppColors.accent;
 Color get _secondaryText => AppColors.textSecondary;
@@ -1747,6 +1748,12 @@ class _BillEditDialogState extends State<_BillEditDialog> {
     if (source == null) return;
     final image = await _imagePicker.pickImage(source: source);
     if (image == null || !mounted) return;
+    unawaited(
+      image
+          .readAsBytes()
+          .then((bytes) => AppImageCache.remember(image.path, bytes))
+          .catchError((_) {}),
+    );
     setState(() => _receiptImagePaths.add(image.path));
   }
 
@@ -2288,43 +2295,26 @@ class _ReceiptAttachmentPanel extends StatelessWidget {
 
 class _ReceiptAttachmentImage extends StatelessWidget {
   final String path;
+  final BoxFit fit;
+  final int? cacheWidth;
 
-  const _ReceiptAttachmentImage({required this.path});
+  const _ReceiptAttachmentImage({
+    required this.path,
+    this.fit = BoxFit.cover,
+    this.cacheWidth,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (path.startsWith('http') || path.startsWith('blob:')) {
-      return Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _fallback(),
-      );
-    }
-
-    return FutureBuilder<Uint8List>(
-      future: XFile(path).readAsBytes(),
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return Image.memory(
-            snapshot.data!,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _fallback(),
-          );
-        }
-        if (snapshot.hasError) return _fallback();
-        return Container(
-          color: AppColors.card,
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.navSelected,
-            ),
-          ),
-        );
-      },
+    return CachedAppImage(
+      path: path,
+      fit: fit,
+      cacheWidth: cacheWidth,
+      filterQuality: fit == BoxFit.contain
+          ? FilterQuality.medium
+          : FilterQuality.low,
+      backgroundColor: AppColors.card,
+      fallbackBuilder: (_) => _fallback(),
     );
   }
 
@@ -2349,50 +2339,113 @@ void _showReceiptImageViewer(
   showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.82),
-    builder: (context) {
-      final controller = PageController(initialPage: initialIndex);
-      return Dialog.fullscreen(
-        backgroundColor: Colors.transparent,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: controller,
-                itemCount: imagePaths.length,
-                itemBuilder: (context, index) {
-                  return InteractiveViewer(
-                    child: Center(
-                      child: _ReceiptAttachmentImage(path: imagePaths[index]),
-                    ),
-                  );
-                },
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.34),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+    builder: (context) => _ReceiptImageViewerDialog(
+      imagePaths: imagePaths,
+      initialIndex: initialIndex,
+    ),
+  );
+}
+
+class _ReceiptImageViewerDialog extends StatefulWidget {
+  final List<String> imagePaths;
+  final int initialIndex;
+
+  const _ReceiptImageViewerDialog({
+    required this.imagePaths,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_ReceiptImageViewerDialog> createState() =>
+      _ReceiptImageViewerDialogState();
+}
+
+class _ReceiptImageViewerDialogState extends State<_ReceiptImageViewerDialog> {
+  late final PageController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: widget.initialIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _precacheAround(widget.initialIndex);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _precacheAround(int index) {
+    final cacheWidth =
+        (MediaQuery.sizeOf(context).width *
+                MediaQuery.devicePixelRatioOf(context) *
+                1.6)
+            .round();
+    for (final imageIndex in <int>[index, index - 1, index + 1]) {
+      if (imageIndex < 0 || imageIndex >= widget.imagePaths.length) continue;
+      unawaited(
+        AppImageCache.precachePath(
+          context,
+          widget.imagePaths[imageIndex],
+          cacheWidth: cacheWidth,
         ),
       );
-    },
-  );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.transparent,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.imagePaths.length,
+            allowImplicitScrolling: true,
+            onPageChanged: _precacheAround,
+            itemBuilder: (context, index) {
+              final viewerCacheWidth =
+                  (MediaQuery.sizeOf(context).width *
+                          MediaQuery.devicePixelRatioOf(context) *
+                          1.6)
+                      .round();
+              return InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(
+                  child: _ReceiptAttachmentImage(
+                    path: widget.imagePaths[index],
+                    fit: BoxFit.contain,
+                    cacheWidth: viewerCacheWidth,
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            top: MediaQuery.viewPaddingOf(context).top + 12,
+            right: 12,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.34),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 26),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DetailRow extends StatelessWidget {

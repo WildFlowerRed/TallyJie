@@ -781,8 +781,12 @@ class LocalDataApi {
       'created_at': now,
       'updated_at': now,
     });
-    for (var i = 0; i < input.receiptImagePaths.length; i++) {
-      final path = input.receiptImagePaths[i];
+    final receiptImagePaths = await _persistLocalAssetPaths(
+      input.receiptImagePaths,
+      bucket: 'receipt',
+    );
+    for (var i = 0; i < receiptImagePaths.length; i++) {
+      final path = receiptImagePaths[i];
       await db.insert('transaction_attachments', {
         'transaction_id': transactionId,
         'file_path': path,
@@ -845,13 +849,17 @@ class LocalDataApi {
       whereArgs: [id],
     );
     if (input.receiptImagePaths != null) {
+      final receiptImagePaths = await _persistLocalAssetPaths(
+        input.receiptImagePaths!,
+        bucket: 'receipt',
+      );
       await db.update(
         'transaction_attachments',
         {'deleted_at': now, 'sync_status': 'pending_delete'},
         where: 'transaction_id = ? AND deleted_at IS NULL',
         whereArgs: [id],
       );
-      for (final path in input.receiptImagePaths!) {
+      for (final path in receiptImagePaths) {
         await db.insert('transaction_attachments', {
           'transaction_id': id,
           'file_path': path,
@@ -940,8 +948,9 @@ class LocalDataApi {
       );
     }
 
-    for (var i = 0; i < input.images.length; i++) {
-      final path = input.images[i];
+    final images = await _persistLocalAssetPaths(input.images, bucket: 'diary');
+    for (var i = 0; i < images.length; i++) {
+      final path = images[i];
       await db.insert('diary_attachments', {
         'diary_id': entryId,
         'type': 'image',
@@ -971,6 +980,46 @@ String _dateKey(DateTime d) =>
 String _monthKey(DateTime date) {
   final month = _monthStart(date);
   return '${month.year}-${month.month.toString().padLeft(2, '0')}';
+}
+
+Future<List<String>> _persistLocalAssetPaths(
+  List<String> paths, {
+  required String bucket,
+}) async {
+  if (kIsWeb || paths.isEmpty) return List.of(paths);
+
+  final supportDir = await getApplicationSupportDirectory();
+  final supportPath = supportDir.path;
+  final savedPaths = <String>[];
+  for (var i = 0; i < paths.length; i++) {
+    final path = paths[i];
+    if (path.startsWith('http') ||
+        path.startsWith('blob:') ||
+        path.startsWith(supportPath)) {
+      savedPaths.add(path);
+      continue;
+    }
+
+    try {
+      final bytes = await XFile(path).readAsBytes();
+      final originalName = _assetFileName(path, fallback: '$bucket-$i.jpg');
+      final fileName =
+          'tallyjie_${bucket}_${DateTime.now().microsecondsSinceEpoch}_'
+          '${i}_$originalName';
+      final targetPath = '$supportPath/$fileName';
+      await XFile.fromData(bytes, name: originalName).saveTo(targetPath);
+      savedPaths.add(targetPath);
+    } catch (_) {
+      savedPaths.add(path);
+    }
+  }
+  return savedPaths;
+}
+
+String _assetFileName(String path, {required String fallback}) {
+  final name = path.split(RegExp(r'[/\\]')).last.trim();
+  if (name.isEmpty || name.contains(':')) return fallback;
+  return name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 }
 
 const _backupTableNames = [

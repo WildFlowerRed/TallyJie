@@ -13,6 +13,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../app/constants.dart';
 import '../../../../core/services/local_data_api.dart';
 import '../../../../core/utils/date_helpers.dart';
+import '../../../../core/widgets/cached_app_image.dart';
 
 String _formatDiaryHeaderDate(DateTime date) {
   return '${date.year}年${date.month}月${date.day}日${DateHelpers.weekdayName(date)}';
@@ -585,6 +586,14 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
 
   Future<String?> _pickOneImage() async {
     final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      unawaited(
+        image
+            .readAsBytes()
+            .then((bytes) => AppImageCache.remember(image.path, bytes))
+            .catchError((_) {}),
+      );
+    }
     return image?.path;
   }
 
@@ -1586,6 +1595,27 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
     super.initState();
     _index = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _precacheAround(_index);
+    });
+  }
+
+  void _precacheAround(int index) {
+    final cacheWidth =
+        (MediaQuery.sizeOf(context).width *
+                MediaQuery.devicePixelRatioOf(context) *
+                1.6)
+            .round();
+    for (final imageIndex in <int>[index, index - 1, index + 1]) {
+      if (imageIndex < 0 || imageIndex >= widget.images.length) continue;
+      unawaited(
+        AppImageCache.precachePath(
+          context,
+          widget.images[imageIndex],
+          cacheWidth: cacheWidth,
+        ),
+      );
+    }
   }
 
   @override
@@ -1603,8 +1633,17 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
           PageView.builder(
             controller: _controller,
             itemCount: widget.images.length,
-            onPageChanged: (index) => setState(() => _index = index),
+            allowImplicitScrolling: true,
+            onPageChanged: (index) {
+              setState(() => _index = index);
+              _precacheAround(index);
+            },
             itemBuilder: (context, index) {
+              final viewerCacheWidth =
+                  (MediaQuery.sizeOf(context).width *
+                          MediaQuery.devicePixelRatioOf(context) *
+                          1.6)
+                      .round();
               return InteractiveViewer(
                 minScale: 0.8,
                 maxScale: 4,
@@ -1612,6 +1651,7 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
                   child: _DiaryImagePreview(
                     path: widget.images[index],
                     fit: BoxFit.contain,
+                    cacheWidth: viewerCacheWidth,
                   ),
                 ),
               );
@@ -2092,29 +2132,25 @@ class _StackedImageCard extends StatelessWidget {
 class _DiaryImagePreview extends StatelessWidget {
   final String path;
   final BoxFit fit;
+  final int? cacheWidth;
 
-  const _DiaryImagePreview({required this.path, this.fit = BoxFit.cover});
+  const _DiaryImagePreview({
+    required this.path,
+    this.fit = BoxFit.cover,
+    this.cacheWidth,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (path.startsWith('http') || path.startsWith('blob:')) {
-      return Image.network(
-        path,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) => _imageFallback(),
-      );
-    }
-    return FutureBuilder(
-      future: XFile(path).readAsBytes(),
-      builder: (context, snapshot) {
-        final bytes = snapshot.data;
-        if (bytes == null) return _imageFallback();
-        return Image.memory(
-          bytes,
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) => _imageFallback(),
-        );
-      },
+    return CachedAppImage(
+      path: path,
+      fit: fit,
+      cacheWidth: cacheWidth,
+      filterQuality: fit == BoxFit.contain
+          ? FilterQuality.medium
+          : FilterQuality.low,
+      backgroundColor: AppColors.card,
+      fallbackBuilder: (_) => _imageFallback(),
     );
   }
 
