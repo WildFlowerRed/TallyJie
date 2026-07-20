@@ -7,10 +7,11 @@ class AppFontScale {
   AppFontScale._();
 
   static const String _storageKey = 'tallyjie_font_scale';
-  static const List<double> steps = [0.9, 1.0, 1.1];
+  static const List<double> steps = [0.72, 0.82, 0.9, 1.0];
+  static const List<String> stepLabels = ['超小', '小', '默认', '大'];
   static final ValueNotifier<int> version = ValueNotifier<int>(0);
 
-  static double current = 1.0;
+  static double current = 0.9;
 
   static int get selectedIndex {
     var nearest = 0;
@@ -41,8 +42,20 @@ class AppFontScale {
   }
 
   static String label(double value) {
-    final percent = (value * 100).round();
-    return '$percent%';
+    return stepLabels[_nearestIndex(value)];
+  }
+
+  static int _nearestIndex(double value) {
+    var nearest = 0;
+    var distance = (steps.first - value).abs();
+    for (var i = 1; i < steps.length; i++) {
+      final nextDistance = (steps[i] - value).abs();
+      if (nextDistance < distance) {
+        nearest = i;
+        distance = nextDistance;
+      }
+    }
+    return nearest;
   }
 
   static double _nearestStep(double value) {

@@ -51,6 +51,17 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   int _fontScaleIndex = AppFontScale.selectedIndex;
   String? _fileStatus;
   bool _busy = false;
+  bool _fontFamilyExpanded = false;
+  bool _themeExpanded = false;
+
+  String get _fontFamilyLabel {
+    return AppFontFamily.options
+        .firstWhere(
+          (option) => option.key == _fontFamilyKey,
+          orElse: () => AppFontFamily.options.first,
+        )
+        .label;
+  }
 
   Future<void> _exportData() async {
     if (_busy) return;
@@ -189,8 +200,25 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                       ),
                       const SizedBox(height: 18),
                       _SectionCard(
+                        icon: Icons.format_size_outlined,
+                        title: '字体大小',
+                        child: _FontScaleControl(
+                          selectedIndex: _fontScaleIndex,
+                          onChanged: (index) {
+                            AppFontScale.apply(AppFontScale.steps[index]);
+                            setState(() => _fontScaleIndex = index);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionCard(
                         icon: Icons.font_download_outlined,
                         title: '字体选择',
+                        subtitle: _fontFamilyLabel,
+                        expanded: _fontFamilyExpanded,
+                        onHeaderTap: () => setState(
+                          () => _fontFamilyExpanded = !_fontFamilyExpanded,
+                        ),
                         child: Column(
                           children: [
                             for (
@@ -221,20 +249,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                       ),
                       const SizedBox(height: 18),
                       _SectionCard(
-                        icon: Icons.format_size_outlined,
-                        title: '字体大小',
-                        child: _FontScaleControl(
-                          selectedIndex: _fontScaleIndex,
-                          onChanged: (index) {
-                            AppFontScale.apply(AppFontScale.steps[index]);
-                            setState(() => _fontScaleIndex = index);
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _SectionCard(
                         icon: Icons.palette_outlined,
                         title: '主题设置',
+                        subtitle: _theme,
+                        expanded: _themeExpanded,
+                        onHeaderTap: () =>
+                            setState(() => _themeExpanded = !_themeExpanded),
                         child: Column(
                           children: [
                             for (
@@ -326,16 +346,23 @@ class _SettingsDialogState extends State<_SettingsDialog> {
 class _SectionCard extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final Widget child;
+  final bool expanded;
+  final VoidCallback? onHeaderTap;
 
   const _SectionCard({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.child,
+    this.expanded = true,
+    this.onHeaderTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isCollapsible = onHeaderTap != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -347,21 +374,61 @@ class _SectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 26, color: AppColors.text),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: AppTypography.body.copyWith(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w600,
+          GestureDetector(
+            onTap: onHeaderTap,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(icon, size: 26, color: AppColors.text),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTypography.body.copyWith(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                if (isCollapsible)
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutQuart,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 28,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
-          child,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutQuart,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(padding: const EdgeInsets.only(top: 18), child: child)
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
