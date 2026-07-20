@@ -203,3 +203,210 @@ class CachedAppImage extends StatelessWidget {
     );
   }
 }
+
+class ZoomableCachedImage extends StatefulWidget {
+  final String path;
+  final int? cacheWidth;
+  final WidgetBuilder? fallbackBuilder;
+  final VoidCallback? onBackgroundTap;
+  final ValueChanged<bool>? onZoomChanged;
+
+  const ZoomableCachedImage({
+    super.key,
+    required this.path,
+    this.cacheWidth,
+    this.fallbackBuilder,
+    this.onBackgroundTap,
+    this.onZoomChanged,
+  });
+
+  @override
+  State<ZoomableCachedImage> createState() => _ZoomableCachedImageState();
+}
+
+class _ZoomableCachedImageState extends State<ZoomableCachedImage> {
+  final TransformationController _transformationController =
+      TransformationController();
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  Size? _imageSize;
+  Offset? _lastDoubleTapPosition;
+  bool _isZoomed = false;
+  int _resolveToken = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImageSize();
+  }
+
+  @override
+  void didUpdateWidget(covariant ZoomableCachedImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _transformationController.value = Matrix4.identity();
+      _setZoomed(false);
+      _resolveImageSize();
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeImageListener();
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _resolveImageSize() async {
+    final token = ++_resolveToken;
+    _removeImageListener();
+    setState(() => _imageSize = null);
+
+    ImageProvider provider;
+    try {
+      if (widget.path.startsWith('http') || widget.path.startsWith('blob:')) {
+        provider = NetworkImage(widget.path);
+      } else {
+        final bytes =
+            AppImageCache.bytesFor(widget.path) ??
+            await AppImageCache.load(widget.path);
+        if (!mounted || token != _resolveToken) return;
+        provider = MemoryImage(bytes);
+      }
+    } catch (_) {
+      return;
+    }
+
+    if (!mounted || token != _resolveToken) return;
+    final stream = provider.resolve(createLocalImageConfiguration(context));
+    final listener = ImageStreamListener((info, _) {
+      if (!mounted || token != _resolveToken) return;
+      final image = info.image;
+      setState(() {
+        _imageSize = Size(image.width.toDouble(), image.height.toDouble());
+      });
+    }, onError: (_, _) {});
+    _imageStream = stream;
+    _imageStreamListener = listener;
+    stream.addListener(listener);
+  }
+
+  void _removeImageListener() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    _imageStream = null;
+    _imageStreamListener = null;
+  }
+
+  void _handleDoubleTap() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    if (scale > 1.05) {
+      _transformationController.value = Matrix4.identity();
+      _setZoomed(false);
+      return;
+    }
+
+    final tapPosition = _lastDoubleTapPosition ?? Offset.zero;
+    const targetScale = 2.4;
+    _transformationController.value = Matrix4.identity()
+      ..translateByDouble(
+        -tapPosition.dx * (targetScale - 1),
+        -tapPosition.dy * (targetScale - 1),
+        0,
+        1,
+      )
+      ..scaleByDouble(targetScale, targetScale, targetScale, 1);
+    _setZoomed(true);
+  }
+
+  void _handleTapUp(TapUpDetails details, Rect imageRect) {
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    if (currentScale > 1.05) return;
+    if (!imageRect.inflate(8).contains(details.localPosition)) {
+      widget.onBackgroundTap?.call();
+    }
+  }
+
+  void _handleInteractionUpdate(ScaleUpdateDetails details) {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    _setZoomed(scale > 1.05);
+  }
+
+  void _handleInteractionEnd(ScaleEndDetails details) {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    _setZoomed(scale > 1.05);
+  }
+
+  void _setZoomed(bool value) {
+    if (_isZoomed == value) return;
+    _isZoomed = value;
+    widget.onZoomChanged?.call(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        final imageRect = _imageRectFor(viewport);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapUp: (details) => _handleTapUp(details, imageRect),
+          onDoubleTapDown: (details) =>
+              _lastDoubleTapPosition = details.localPosition,
+          onDoubleTap: _handleDoubleTap,
+          child: InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: 1,
+            maxScale: 4,
+            boundaryMargin: const EdgeInsets.all(96),
+            clipBehavior: Clip.none,
+            onInteractionUpdate: _handleInteractionUpdate,
+            onInteractionEnd: _handleInteractionEnd,
+            child: SizedBox.expand(
+              child: Center(
+                child: SizedBox(
+                  width: imageRect.width,
+                  height: imageRect.height,
+                  child: CachedAppImage(
+                    path: widget.path,
+                    fit: BoxFit.contain,
+                    cacheWidth: widget.cacheWidth,
+                    filterQuality: FilterQuality.medium,
+                    backgroundColor: Colors.black,
+                    fallbackBuilder: widget.fallbackBuilder,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Rect _imageRectFor(Size viewport) {
+    if (viewport.width <= 0 || viewport.height <= 0) {
+      return Rect.zero;
+    }
+    final source = _imageSize;
+    if (source == null || source.width <= 0 || source.height <= 0) {
+      final fallbackSize = Size(viewport.width, viewport.height * 0.72);
+      final offset = Offset(
+        (viewport.width - fallbackSize.width) / 2,
+        (viewport.height - fallbackSize.height) / 2,
+      );
+      return offset & fallbackSize;
+    }
+
+    final fitted = applyBoxFit(BoxFit.contain, source, viewport).destination;
+    final offset = Offset(
+      (viewport.width - fitted.width) / 2,
+      (viewport.height - fitted.height) / 2,
+    );
+    return offset & fitted;
+  }
+}

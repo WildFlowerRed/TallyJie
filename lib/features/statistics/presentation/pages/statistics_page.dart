@@ -2295,24 +2295,14 @@ class _ReceiptAttachmentPanel extends StatelessWidget {
 
 class _ReceiptAttachmentImage extends StatelessWidget {
   final String path;
-  final BoxFit fit;
-  final int? cacheWidth;
 
-  const _ReceiptAttachmentImage({
-    required this.path,
-    this.fit = BoxFit.cover,
-    this.cacheWidth,
-  });
+  const _ReceiptAttachmentImage({required this.path});
 
   @override
   Widget build(BuildContext context) {
     return CachedAppImage(
       path: path,
-      fit: fit,
-      cacheWidth: cacheWidth,
-      filterQuality: fit == BoxFit.contain
-          ? FilterQuality.medium
-          : FilterQuality.low,
+      fit: BoxFit.cover,
       backgroundColor: AppColors.card,
       fallbackBuilder: (_) => _fallback(),
     );
@@ -2362,10 +2352,13 @@ class _ReceiptImageViewerDialog extends StatefulWidget {
 
 class _ReceiptImageViewerDialogState extends State<_ReceiptImageViewerDialog> {
   late final PageController _controller;
+  late int _index;
+  bool _isImageZoomed = false;
 
   @override
   void initState() {
     super.initState();
+    _index = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _precacheAround(widget.initialIndex);
@@ -2406,21 +2399,38 @@ class _ReceiptImageViewerDialogState extends State<_ReceiptImageViewerDialog> {
             controller: _controller,
             itemCount: widget.imagePaths.length,
             allowImplicitScrolling: true,
-            onPageChanged: _precacheAround,
+            physics: _isImageZoomed
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
+            onPageChanged: (index) {
+              setState(() {
+                _index = index;
+                _isImageZoomed = false;
+              });
+              _precacheAround(index);
+            },
             itemBuilder: (context, index) {
               final viewerCacheWidth =
                   (MediaQuery.sizeOf(context).width *
                           MediaQuery.devicePixelRatioOf(context) *
                           1.6)
                       .round();
-              return InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 4,
-                child: Center(
-                  child: _ReceiptAttachmentImage(
-                    path: widget.imagePaths[index],
-                    fit: BoxFit.contain,
-                    cacheWidth: viewerCacheWidth,
+              return ZoomableCachedImage(
+                key: ValueKey(widget.imagePaths[index]),
+                path: widget.imagePaths[index],
+                cacheWidth: viewerCacheWidth,
+                onBackgroundTap: () => Navigator.of(context).pop(),
+                onZoomChanged: (zoomed) {
+                  if (index != _index || _isImageZoomed == zoomed) return;
+                  setState(() => _isImageZoomed = zoomed);
+                },
+                fallbackBuilder: (_) => Container(
+                  color: AppColors.card,
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.image_not_supported_outlined,
+                    color: AppColors.textHint,
+                    size: 30,
                   ),
                 ),
               );

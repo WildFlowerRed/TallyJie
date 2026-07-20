@@ -1589,6 +1589,7 @@ class _ImageViewerPage extends StatefulWidget {
 class _ImageViewerPageState extends State<_ImageViewerPage> {
   late final PageController _controller;
   late int _index;
+  bool _isImageZoomed = false;
 
   @override
   void initState() {
@@ -1634,8 +1635,14 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
             controller: _controller,
             itemCount: widget.images.length,
             allowImplicitScrolling: true,
+            physics: _isImageZoomed
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
             onPageChanged: (index) {
-              setState(() => _index = index);
+              setState(() {
+                _index = index;
+                _isImageZoomed = false;
+              });
               _precacheAround(index);
             },
             itemBuilder: (context, index) {
@@ -1644,14 +1651,20 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
                           MediaQuery.devicePixelRatioOf(context) *
                           1.6)
                       .round();
-              return InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 4,
-                child: Center(
-                  child: _DiaryImagePreview(
-                    path: widget.images[index],
-                    fit: BoxFit.contain,
-                    cacheWidth: viewerCacheWidth,
+              return ZoomableCachedImage(
+                key: ValueKey(widget.images[index]),
+                path: widget.images[index],
+                cacheWidth: viewerCacheWidth,
+                onBackgroundTap: () => Navigator.of(context).pop(),
+                onZoomChanged: (zoomed) {
+                  if (index != _index || _isImageZoomed == zoomed) return;
+                  setState(() => _isImageZoomed = zoomed);
+                },
+                fallbackBuilder: (_) => Center(
+                  child: Icon(
+                    Icons.image_outlined,
+                    color: AppColors.textHint,
+                    size: 34,
                   ),
                 ),
               );
@@ -2131,24 +2144,14 @@ class _StackedImageCard extends StatelessWidget {
 
 class _DiaryImagePreview extends StatelessWidget {
   final String path;
-  final BoxFit fit;
-  final int? cacheWidth;
 
-  const _DiaryImagePreview({
-    required this.path,
-    this.fit = BoxFit.cover,
-    this.cacheWidth,
-  });
+  const _DiaryImagePreview({required this.path});
 
   @override
   Widget build(BuildContext context) {
     return CachedAppImage(
       path: path,
-      fit: fit,
-      cacheWidth: cacheWidth,
-      filterQuality: fit == BoxFit.contain
-          ? FilterQuality.medium
-          : FilterQuality.low,
+      fit: BoxFit.cover,
       backgroundColor: AppColors.card,
       fallbackBuilder: (_) => _imageFallback(),
     );
