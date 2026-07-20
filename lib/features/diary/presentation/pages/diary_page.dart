@@ -265,8 +265,11 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
     final updated = await showDialog<_DiaryEditResult>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) =>
-          _DiaryEditDialog(entry: entry, pickImage: _pickOneImage),
+      builder: (context) => _DiaryEditDialog(
+        entry: entry,
+        pickImage: _pickOneImage,
+        resolveCurrentLocation: _resolveCurrentLocation,
+      ),
     );
     if (updated == null) return null;
     final saved = await LocalDataApi.instance.saveDiaryEntry(
@@ -725,8 +728,13 @@ class _DiaryPageState extends ConsumerState<DiaryPage> {
 class _DiaryEditDialog extends StatefulWidget {
   final DiaryEntryDto entry;
   final Future<String?> Function() pickImage;
+  final Future<String?> Function() resolveCurrentLocation;
 
-  const _DiaryEditDialog({required this.entry, required this.pickImage});
+  const _DiaryEditDialog({
+    required this.entry,
+    required this.pickImage,
+    required this.resolveCurrentLocation,
+  });
 
   @override
   State<_DiaryEditDialog> createState() => _DiaryEditDialogState();
@@ -738,6 +746,7 @@ class _DiaryEditDialogState extends State<_DiaryEditDialog> {
   late final FocusNode _contentFocusNode;
   late final FocusNode _locationFocusNode;
   late final List<String> _draftImages;
+  bool _locating = false;
 
   @override
   void initState() {
@@ -772,6 +781,19 @@ class _DiaryEditDialogState extends State<_DiaryEditDialog> {
     final image = await widget.pickImage();
     if (image == null || !mounted) return;
     setState(() => _draftImages.add(image));
+  }
+
+  Future<void> _resolveLocation() async {
+    if (_locating) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _locating = true);
+    try {
+      final location = await widget.resolveCurrentLocation();
+      if (!mounted || location == null) return;
+      setState(() => _locationController.text = location);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   void _save() {
@@ -831,6 +853,27 @@ class _DiaryEditDialogState extends State<_DiaryEditDialog> {
                     Icons.place_outlined,
                     color: AppColors.navSelected,
                     size: 30,
+                  ),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      tooltip: '获取当前位置',
+                      onPressed: _locating ? null : _resolveLocation,
+                      icon: _locating
+                          ? SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.navSelected,
+                              ),
+                            )
+                          : Icon(
+                              Icons.my_location_outlined,
+                              color: AppColors.navSelected,
+                              size: 28,
+                            ),
+                    ),
                   ),
                   hintText: '添加更详细的位置',
                   hintStyle: TextStyle(color: AppColors.textHint, fontSize: 22),
