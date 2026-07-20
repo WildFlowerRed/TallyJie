@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/theme/app_colors.dart';
+import 'app/theme/app_font_family.dart';
 import 'app/theme/app_font_scale.dart';
 import 'app/theme/app_theme.dart';
 import 'app/router.dart';
@@ -10,6 +11,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppImageCache.configureFlutterImageCache();
   await AppColors.restoreSavedPalette();
+  await AppFontFamily.restore();
   await AppFontScale.restore();
   runApp(const ProviderScope(child: TallyJieApp()));
 }
@@ -22,26 +24,29 @@ class TallyJieApp extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: AppColors.themeVersion,
       builder: (context, _, child) {
-        return MaterialApp.router(
-          title: 'TallyJie',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          routerConfig: AppRouter.router,
-          builder: (context, child) {
-            return ValueListenableBuilder<int>(
-              valueListenable: AppFontScale.version,
-              builder: (context, _, scaledChild) => GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                child: _AppUiScale(
-                  scale: 0.84,
-                  fontScale: AppFontScale.current,
-                  child: scaledChild ?? const SizedBox(),
+        return ValueListenableBuilder<int>(
+          valueListenable: AppFontFamily.version,
+          builder: (context, _, child) => MaterialApp.router(
+            title: 'TallyJie',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            routerConfig: AppRouter.router,
+            builder: (context, child) {
+              return ValueListenableBuilder<int>(
+                valueListenable: AppFontScale.version,
+                builder: (context, _, scaledChild) => GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  child: _AppUiScale(
+                    scale: 0.84,
+                    fontScale: AppFontScale.current,
+                    child: scaledChild ?? const SizedBox(),
+                  ),
                 ),
-              ),
-              child: child ?? const SizedBox(),
-            );
-          },
+                child: child ?? const SizedBox(),
+              );
+            },
+          ),
         );
       },
     );

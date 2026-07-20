@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_font_family.dart';
 import 'app_typography.dart';
 import 'app_radius.dart';
 
@@ -26,6 +27,7 @@ class AppTheme {
 
   static ThemeData get light => ThemeData(
     useMaterial3: true,
+    fontFamily: AppFontFamily.currentFamily,
     scaffoldBackgroundColor: AppColors.bg,
     colorScheme: ColorScheme.light(
       surface: AppColors.bg,

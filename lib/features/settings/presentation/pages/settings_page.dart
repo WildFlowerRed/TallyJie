@@ -3,6 +3,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_font_family.dart';
 import '../../../../app/theme/app_font_scale.dart';
 import '../../../../app/theme/app_radius.dart';
 import '../../../../app/theme/app_shadows.dart';
@@ -46,6 +47,7 @@ class _SettingsDialog extends StatefulWidget {
 
 class _SettingsDialogState extends State<_SettingsDialog> {
   String _theme = AppColors.currentTheme;
+  String _fontFamilyKey = AppFontFamily.currentKey;
   int _fontScaleIndex = AppFontScale.selectedIndex;
   String? _fileStatus;
   bool _busy = false;
@@ -183,6 +185,38 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         child: Text(
                           '设置',
                           style: AppTypography.subtitle.copyWith(fontSize: 26),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionCard(
+                        icon: Icons.font_download_outlined,
+                        title: '字体选择',
+                        child: Column(
+                          children: [
+                            for (
+                              var i = 0;
+                              i < AppFontFamily.options.length;
+                              i++
+                            ) ...[
+                              _FontFamilyTile(
+                                option: AppFontFamily.options[i],
+                                selected:
+                                    _fontFamilyKey ==
+                                    AppFontFamily.options[i].key,
+                                onTap: () {
+                                  AppFontFamily.apply(
+                                    AppFontFamily.options[i].key,
+                                  );
+                                  setState(
+                                    () => _fontFamilyKey =
+                                        AppFontFamily.options[i].key,
+                                  );
+                                },
+                              ),
+                              if (i != AppFontFamily.options.length - 1)
+                                const SizedBox(height: 12),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -478,6 +512,104 @@ class _FontScaleControl extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _FontFamilyTile extends StatelessWidget {
+  final AppFontOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FontFamilyTile({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutQuart,
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.navSelected.withValues(alpha: 0.12)
+              : AppColors.card,
+          borderRadius: AppRadius.md,
+          border: Border.all(
+            color: selected
+                ? AppColors.navSelected.withValues(alpha: 0.38)
+                : AppColors.divider,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 72,
+              height: 54,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.navSelected.withValues(alpha: 0.09),
+                borderRadius: AppRadius.sm,
+              ),
+              child: Text(
+                option.sample,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.subtitle.copyWith(
+                  fontFamily: option.family,
+                  color: AppColors.navSelected,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.label,
+                    style: AppTypography.body.copyWith(
+                      fontFamily: option.family,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    option.description,
+                    style: AppTypography.caption.copyWith(fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: selected
+                  ? Icon(
+                      Icons.check_circle,
+                      key: const ValueKey('selected'),
+                      color: AppColors.navSelected,
+                      size: 25,
+                    )
+                  : Icon(
+                      Icons.circle_outlined,
+                      key: const ValueKey('unselected'),
+                      color: AppColors.textHint,
+                      size: 22,
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -34,3 +34,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: TallyJieNotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-wght.ttf
+    - family: TallyJieMaShanZheng
+      fonts:
+        - asset: assets/fonts/MaShanZheng-Regular.ttf
+    - family: TallyJieZcoolXiaoWei
+      fonts:
+        - asset: assets/fonts/ZCOOLXiaoWei-Regular.ttf
